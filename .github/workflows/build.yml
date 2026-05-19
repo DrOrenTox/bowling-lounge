@@ -1,5 +1,4 @@
 name: Build Geode Mod
-
 on:
   push:
     branches:
@@ -7,7 +6,6 @@ on:
   pull_request:
     branches:
       - main
-
 jobs:
   build:
     strategy:
@@ -26,13 +24,10 @@ jobs:
     runs-on: ${{ matrix.config.os }}
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Geode SDK
-        uses: geode-sdk/setup-geode@main
-
+        uses: geode-sdk/setup-geode-sdk@main
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         env:
           GEODE_TARGET: ${{ matrix.config.target }}
           GEODE_PLATFORM: ${{ matrix.config.platform }}
-          
