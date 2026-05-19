@@ -16,6 +16,7 @@ jobs:
         config:
           - name: Windows
             os: windows-2022
+            target: windows
             platform: win
           - name: Android
             os: ubuntu-latest
@@ -31,3 +32,4 @@ jobs:
         with:
           target: ${{ matrix.config.target }}
           platform: ${{ matrix.config.platform }}
+
