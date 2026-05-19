@@ -15,19 +15,15 @@ jobs:
           - name: Windows
             os: windows-2022
             target: win
-            platform: win
           - name: Android
             os: ubuntu-latest
             target: android
-            platform: android
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Geode SDK
-        uses: geode-sdk/setup-geode-sdk@main
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
-        env:
-          GEODE_TARGET: ${{ matrix.config.target }}
-          GEODE_PLATFORM: ${{ matrix.config.platform }}
+        with:
+          target: ${{ matrix.config.target }}
+          
