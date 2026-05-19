@@ -1,35 +1,11 @@
-name: Build Geode Mod
+cmake_minimum_required(VERSION 3.25)
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+project(cosmic_bowling_lounge VERSION 1.0.0)
 
-jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - name: Windows
-            os: windows-2022
-            platform: win
-          - name: Android
-            os: ubuntu-latest
-            target: android
-            platform: android
-    name: ${{ matrix.config.name }}
-    runs-on: ${{ matrix.config.os }}
-    steps:
-      - uses: actions/checkout@v4
+find_package(geode REQUIRED)
 
-      - name: Build Mod
-        uses: geode-sdk/build-geode-mod@main
-        with:
-          target: ${{ matrix.config.target }}
-          platform: ${{ matrix.config.platform }}
-
-
+add_geode_mod(
+    mateo18023.cosmic_bowling_lounge
+    VERSION 1.0.0
+    FILES Main.cpp
+)
