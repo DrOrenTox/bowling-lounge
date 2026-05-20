@@ -40,12 +40,12 @@ jobs:
           key: ${{ matrix.config.target }}-${{ github.sha }}
           restore-keys: ${{ matrix.config.target }}-
 
-      # FIXED: Uses Geode's native NDK system instead of a separate action
+      # FIXED: Passed 'latest' explicitly instead of boolean 'false' to stop the 404
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-          cli: false
+          cli: 'latest'
           android-ndk-version: r26b
 
       - name: Upload Platform Artifact
@@ -77,3 +77,4 @@ jobs:
         with:
           name: CosmicBowlingLounge-Final
           path: CosmicBowlingLounge.geode
+
