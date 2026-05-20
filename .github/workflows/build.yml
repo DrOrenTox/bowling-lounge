@@ -1,4 +1,4 @@
-name: Build Geode Mod
+      name: Build Geode Mod
 
 on:
   push:
@@ -34,7 +34,6 @@ jobs:
             target: Android64
 
     name: ${{ matrix.config.name }}
-    runs-size: large
     runs-on: ${{ matrix.config.os }}
 
     steps:
@@ -75,4 +74,3 @@ jobs:
     steps:
       - name: Merge Platform Builds
         uses: geode-sdk/build-geode-mod/combine@main
-
