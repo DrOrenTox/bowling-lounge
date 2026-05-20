@@ -40,12 +40,13 @@ jobs:
           key: ${{ matrix.config.target }}-${{ github.sha }}
           restore-keys: ${{ matrix.config.target }}-
 
-      # FIXED: Passed 'latest' explicitly instead of boolean 'false' to stop the 404
+      # FIXED: Added sdk: 'latest' so the runner installs the missing framework headers
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
           cli: 'latest'
+          sdk: 'latest'
           android-ndk-version: r26b
 
       - name: Upload Platform Artifact
