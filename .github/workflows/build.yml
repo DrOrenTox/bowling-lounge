@@ -5,8 +5,7 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -15,16 +14,27 @@ jobs:
       matrix:
         config:
           - name: Windows
-            os: windows-2022
-            target: Win64
-          - name: Android 64-bit
-            os: ubuntu-latest
-            target: Android64
-          - name: Android 32-bit (S6 Lite Compatibility)
+            os: windows-latest
+            target: Win32
+
+          - name: macOS
+            os: macos-latest
+            target: Mac
+
+          - name: iOS
+            os: macos-latest
+            target: iOS
+
+          - name: Android32
             os: ubuntu-latest
             target: Android32
 
+          - name: Android64
+            os: ubuntu-latest
+            target: Android64
+
     name: ${{ matrix.config.name }}
+    runs-size: large
     runs-on: ${{ matrix.config.os }}
 
     steps:
@@ -36,46 +46,33 @@ jobs:
         with:
           path: |
             ~/.ccache
-            ~/.geode
-          key: ${{ matrix.config.target }}-${{ github.sha }}
-          restore-keys: ${{ matrix.config.target }}-
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-geode-${{ matrix.config.target }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-geode-${{ matrix.config.target }}-
 
-      # FIXED: Added 'sdk: latest' and 'cli: latest' to fix the CMake FindGeode and 404 errors
+      - name: Setup Geode SDK
+        uses: geode-sdk/setup@main
+        with:
+          cli: 'latest'
+          sdk: 'latest'
+
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-          cli: 'latest'
-          sdk: 'latest'
-          android-ndk-version: r26b
-
-      - name: Upload Platform Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: geode-build-${{ matrix.config.target }}
-          path: "**/*.geode"
+          android-ndk-version: 'r26b'
+          combine: false
 
   package:
-    name: Package Final Mod
+    name: Package Builds
     needs: build
     runs-on: ubuntu-latest
+
     steps:
-      - name: Download All Platform Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: platform-bins
-          pattern: geode-build-*
-          merge-multiple: true
-
-      - name: Combine Binaries Into One Mod
+      - name: Merge Platform Builds
         uses: geode-sdk/build-geode-mod/combine@main
-        with:
-          source: platform-bins
-          output: CosmicBowlingLounge.geode
-
-      - name: Upload Finished Mod
-        uses: actions/upload-artifact@v4
-        with:
-          name: CosmicBowlingLounge-Final
-          path: CosmicBowlingLounge.geode
 
