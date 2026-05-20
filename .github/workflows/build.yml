@@ -5,14 +5,27 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-      - name: Build Mod
-        uses: geode-sdk/build-geode-mod@main
-        with:
-          target: Android32
+
+      - name: Setup Geode CLI and SDK
+        run: |
+          # Install the Geode CLI tool directly
+          wget https://github.com
+          sudo unzip geode-cli-linux.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/geode
+          
+          # Initialize the SDK environment completely
+          geode sdk install
+          echo "GEODE_SDK=$HOME/.geode/sdk" >> $GITHUB_ENV
+
+      - name: Build Mod with CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DGEODE_SDK=$GEODE_SDK
+          cmake --build build --config Release
 
