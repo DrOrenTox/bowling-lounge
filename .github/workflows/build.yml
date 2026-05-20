@@ -15,12 +15,10 @@ jobs:
 
       - name: Setup Geode CLI and SDK
         run: |
-          # Install the Geode CLI tool directly
-          wget https://github.com
-          sudo unzip geode-cli-linux.zip -d /usr/local/bin
-          chmod +x /usr/local/bin/geode
-          
-          # Initialize the SDK environment completely
+          curl -L "https://github.com" -o geode-cli.zip
+          unzip geode-cli.zip -d geode-bin
+          chmod +x geode-bin/geode
+          sudo mv geode-bin/geode /usr/local/bin/geode
           geode sdk install
           echo "GEODE_SDK=$HOME/.geode/sdk" >> $GITHUB_ENV
 
