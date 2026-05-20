@@ -1,27 +1,15 @@
 name: Build Geode Mod
-
 on:
   push:
     branches:
       - main
   pull_request:
   workflow_dispatch:
-
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [Win32, Mac, Android]
-
-    name: Build ${{ matrix.platform }}
-    runs-on: ${{ matrix.platform == 'Win32' && 'windows-latest' || matrix.platform == 'Mac' && 'macos-latest' || 'ubuntu-latest' }}
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
-        with:
-          platform: ${{ matrix.platform }}
