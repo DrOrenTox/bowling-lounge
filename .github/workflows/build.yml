@@ -13,14 +13,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows
-            os: windows-latest
-
-          - name: macOS
-            os: macos-latest
-
-          - name: Android
-            os: ubuntu-latest
+          - { name: "Windows", os: "windows-latest" }
+          - { name: "macOS", os: "macos-latest" }
+          - { name: "Android", os: "ubuntu-latest" }
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
@@ -33,4 +28,4 @@ jobs:
         uses: geode-sdk/build-geode-mod@main
         with:
           bindings: 'latest'
-uild-geode-mod/combi
+
