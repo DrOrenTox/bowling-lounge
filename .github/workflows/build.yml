@@ -40,7 +40,7 @@ jobs:
           key: ${{ matrix.config.target }}-${{ github.sha }}
           restore-keys: ${{ matrix.config.target }}-
 
-      # FIXED: Added sdk: 'latest' so the runner installs the missing framework headers
+      # FIXED: Added 'sdk: latest' and 'cli: latest' to fix the CMake FindGeode and 404 errors
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         with:
