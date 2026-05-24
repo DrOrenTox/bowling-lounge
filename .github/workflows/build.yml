@@ -39,10 +39,15 @@ jobs:
           if (Test-Path "cpm-cache") {
             Remove-Item -Recurse -Force "cpm-cache"
           }
+          if (Test-Path ".cmake") {
+            Remove-Item -Recurse -Force ".cmake"
+          }
         shell: powershell
 
       - name: Build Mod Binary
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-
+        env:
+          CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm-cache
+          CMAKE_GENERATOR_PLATFORM: x64
