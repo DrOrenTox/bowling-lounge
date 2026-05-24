@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,27 +13,26 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows
-            os: windows-latest
-          - name: macOS
-            os: macos-latest
-          - name: iOS
-            os: macos-latest
-            target: ios
-          - name: Android
-            os: ubuntu-latest
-            target: android
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+          - os: ubuntu-latest
+            platform: android64
+          - os: ubuntu-latest
+            platform: android32
 
-    name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # This single line handles the entire cross-platform toolchain build cleanly
+      - name: Setup Geode CLI
+        uses: geode-sdk/cli/.github/actions/setup@main
+
       - name: Build Mod Binary
         uses: geode-sdk/build-geode-mod@main
         with:
-          target: ${{ matrix.config.target }}
+          platform: ${{ matrix.config.platform }}
 
