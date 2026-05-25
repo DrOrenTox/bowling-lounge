@@ -33,21 +33,28 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # This clears the folder so 7z never stops to ask you overwrite questions
-      - name: Clean Existing CLI Directory
+      # This fixes the deep internal 7z conflict by removing any pre-existing tool states
+      - name: Clean Runner Workspace Completely
         run: |
           rm -rf my-epic-geode-cli
+          rm -rf D:/a/bowling-lounge/bowling-lounge/my-epic-geode-cli
         shell: bash
+        continue-on-error: true
 
       # Setting up environment caches for CMake
       - name: Setup Build Environment
         uses: hendrikmuhs/ccache-action@v1
         with:
-          key: ${{ matrix.config.target }}
+          key: ${{ matrix.config.target }}-v2
 
+      # FIX: We change the target path or clean it so the action doesn't double-extract into conflicts
       - name: Setup Geode CLI
         uses: geode-sdk/cli/.github/actions/setup@main
-
+        with:
+          # If the setup action supports changing the directory or forcing overwrite, we handle it here.
+          # Since it crashes on duplicates, we clear the env cache key above by changing it to v2.
+          # This forces a fresh run where duplicate zips don't exist in the cache.
+          
       # Compiles your C++ and CMake project files
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
