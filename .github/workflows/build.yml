@@ -2,9 +2,9 @@ name: Build Geode Mod
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -13,41 +13,53 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - os: windows-latest
+          - name: Windows
+            os: windows-latest
             target: Win64
-          - os: macos-latest
-            target: MacOS
-          - os: macos-latest
-            target: iOS
-          - os: ubuntu-latest
-            target: Android64
-          - os: ubuntu-latest
+          - name: Android32
+            os: ubuntu-latest
             target: Android32
+          - name: Android64
+            os: ubuntu-latest
+            target: Android64
+          - name: macOS
+            os: macos-latest
+            target: Mac
 
+    name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # FIX: Force clean the directory before the setup action runs to prevent 7z overwrite prompts
+      - name: Clean Existing CLI Directory
+        run: |
+          rm -rf my-epic-geode-cli
+        shell: bash
+
+      # Sets up the building tools (ninja, ccache, sccache)
+      - name: Setup Build Environment
+        uses: hendrikmuhs/ccache-action@v1
+        with:
+          key: ${{ matrix.config.target }}
+
+      # Downloads and sets up the compiler tools for Geode
       - name: Setup Geode CLI
         uses: geode-sdk/cli/.github/actions/setup@main
 
-      - name: Clear CPM Cache (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          if (Test-Path "cpm-cache") {
-            Remove-Item -Recurse -Force "cpm-cache"
-          }
-          if (Test-Path ".cmake") {
-            Remove-Item -Recurse -Force ".cmake"
-          }
-        shell: powershell
-
-      - name: Build Mod Binary
+      # Builds the actual mod files for the chosen target platform
+      - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-        env:
-          CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm-cache
-          CMAKE_GENERATOR_PLATFORM: x64
+
+  # Combines all platform builds (.dll, .so, .dylib) into a single cross-platform .geode file
+  package:
+    name: Package Mod
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge Platform Builds
+        uses: geode-sdk/build-geode-mod/combine@main
