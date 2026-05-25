@@ -39,7 +39,7 @@ jobs:
           rm -rf my-epic-geode-cli
         shell: bash
 
-       Eagle Eye: Setting up environment caches for CMake
+      # Setting up environment caches for CMake
       - name: Setup Build Environment
         uses: hendrikmuhs/ccache-action@v1
         with:
@@ -61,3 +61,4 @@ jobs:
     steps:
       - name: Merge Platform Builds
         uses: geode-sdk/build-geode-mod/combine@main
+
