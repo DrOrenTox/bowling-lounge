@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-  pull_request:
-  workflow_dispatch:
 
 jobs:
   build:
@@ -13,44 +11,17 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows
-            os: windows-latest
-            target: Win64
-          - name: Android32
+          - name: Android
             os: ubuntu-latest
-            target: Android32
-          - name: Android64
-            os: ubuntu-latest
-            target: Android64
-          - name: macOS
-            os: macos-latest
-            target: Mac
+            target: Android
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Build Environment
-        uses: hendrikmuhs/ccache-action@v1
-        with:
-          key: ${{ matrix.config.target }}-cache-v2
+      - uses: actions/checkout@v4
 
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-
-  package:
-    name: Package Mod
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Merge Platform Builds
-        uses: geode-sdk/build-geode-mod/combine@main
-
