@@ -1,13 +1,17 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.21)
 
 project(cosmic_bowling_lounge VERSION 1.0.0)
 
-# FIXED: Capitalized 'Geode' so the Linux compiler can find the package
-find_package(Geode REQUIRED)
+if (NOT DEFINED ENV{GEODE_SDK})
+    message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")
+else()
+    message(STATUS "Found Geode: $ENV{GEODE_SDK}")
+endif()
 
-# FIXED: Changed 'add_geode_mod' to 'setup_geode_mod' per Geode standards
-setup_geode_mod(
-    mateo18023.cosmic_bowling_lounge
-    VERSION 1.0.0
-    FILES Main.cpp
-)
+add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
+
+file(GLOB_RECURSE SOURCES Src/*.cpp)
+
+add_library(${PROJECT_NAME} SHARED ${SOURCES})
+
+setup_geode_mod(${PROJECT_NAME})
