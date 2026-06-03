@@ -29,12 +29,17 @@ jobs:
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          combine: true
           target: ${{ matrix.config.target }}
 
-  package:
-    name: Package builds
+  combine:
+    name: Combine builds
     runs-on: ubuntu-latest
+    needs: ['build']
+
+    steps:
+      - uses: geode-sdk/build-geode-mod@main
+        with:
+          combine: true    runs-on: ubuntu-latest
     needs: ['build']
 
     steps:
