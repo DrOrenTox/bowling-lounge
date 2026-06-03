@@ -35,8 +35,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-geode-
 
+      - name: Setup Geode CLI
+        uses: geode-sdk/cli/.github/actions/setup@main
+
       - name: Build Mod
-        uses: geode-sdk/build-geode-mod@main
+        uses: geode-sdk/build-geode-mod/build@main
         with:
           target: ${{ matrix.config.target }}
 
