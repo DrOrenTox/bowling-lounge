@@ -1,9 +1,11 @@
-name: Build Geode Mod (Windows & Android)
+name: Build Geode Mod
 
 on:
   push:
-    branches:
-      - '**'
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,33 +14,30 @@ jobs:
       matrix:
         config:
           - name: Windows
+            target: win
             os: windows-latest
-            target: Win64
-          - name: Android
+          - name: Android64
+            target: android64
             os: ubuntu-latest
-            target: Android64
 
-    name: ${{ matrix.config.name }}
+    name: Build ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.ccache
-            build/vcpkg_installed
-          key: ${{ runner.os }}-geode-${{ hashFiles('**/CMakeLists.txt', '**/mod.json') }}
-          restore-keys: |
-            ${{ runner.os }}-geode-
-
       - name: Build Mod
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-          sdk: true
           build-config: Release
+
+  combine:
+    name: Package Combined Mod
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Combine Builds
+        uses: geode-sdk/build-geode-mod/combine@main
 
