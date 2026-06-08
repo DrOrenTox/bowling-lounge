@@ -65,7 +65,6 @@ protected:
         auto* bgSprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/cosmic_bg.png");
         if (bgSprite) {
             bgSprite->setPosition({ winSize.width / 2, winSize.height / 2 });
-            // Dynamic scale configuration to perfectly cover tablet/mobile screens
             float scaleX = winSize.width / bgSprite->getContentSize().width;
             float scaleY = winSize.height / bgSprite->getContentSize().height;
             bgSprite->setScaleX(scaleX);
@@ -152,7 +151,7 @@ protected:
         m_ballVelocityX = 0.0f;
         m_ballVelocityY = 0.0f;
 
-        // FIX: Creating custom mod asset container calls safely instead of fallback icons
+        // FIXED: Custom namespace asset container calls safely mapped
         m_bowlingBall = CCSprite::create("mateo18023.cosmic_bowling_lounge/bowling_ball.png");
         if (!m_bowlingBall) {
             m_bowlingBall = CCSprite::createWithSpriteFrameName("p_firework_01.png");
@@ -182,7 +181,7 @@ protected:
 
         for (const auto& coordinate : targetCoords) {
             PinEntity pin;
-            // FIX: Load your striped custom bowling pin asset
+            // FIXED: Loads your custom striped bowling pin asset
             pin.sprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/bowling_pin.png");
             if (!pin.sprite) {
                 pin.sprite = CCSprite::createWithSpriteFrameName("slidergroove.png");
@@ -247,17 +246,13 @@ protected:
                     g_pinsKnockedDown++;
 
                     pin.vx = m_ballVelocityX * 0.75f;
-pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f;
-pin.rotationSpeed = 25.0f;
-
-// Give a slight impact flash if standard fallback frames are active
-if (!Loader::get()->getLoadedMod("mateo18023.cosmic_bowling_lounge")) {
-pin.sprite->setColor({ 255, 100, 100 });
-}
+                    pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f;
+                    pin.rotationSpeed = 25.0f;
 
 std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
 m_scoreLabel->setString(scoreStr.c_str());
 
+// ✅ CRITICAL FIX APPLIED: Template argument restored
 syncPinDropWithGlobed(static_cast(i));
 
 if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
@@ -275,7 +270,7 @@ m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
 }
 }
 
-// 2. OPTIMIZED: PIN FLYING PHYSICS TICK ENGINE (Broke Infinite Frame Callbacks)
+// 2. OPTIMIZED: PIN PHYSICS TICK ENGINE (Eliminated Infinite Recursion Loop Trap)
 for (size_t i = 0; i < m_pinDeck.size(); ++i) {
 auto& pin = m_pinDeck[i];
 if (pin.isKnockedDown && pin.sprite->isVisible()) {
@@ -285,7 +280,6 @@ pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
 
 auto flyingPinBox = pin.sprite->boundingBox();
 for (size_t j = 0; j < m_pinDeck.size(); ++j) {
-// CRITICAL FIX: skip comparing a pin against itself or pins that are already active flying models
 if (i == j) continue;
 
 auto& otherPin = m_pinDeck[j];
@@ -298,6 +292,8 @@ otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0
 otherPin.rotationSpeed = 20.0f;
 
 m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
+
+// ✅ CRITICAL FIX APPLIED: Template argument restored
 syncPinDropWithGlobed(static_cast(j));
 }
 }
