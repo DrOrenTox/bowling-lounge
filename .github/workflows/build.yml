@@ -30,7 +30,6 @@ jobs:
         with:
           target: ${{ matrix.config.target }}
 
-      # FIX 1: Upload each platform with its own unique matrix name to prevent conflicts
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -48,16 +47,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # FIX 2: Download ALL platform files cleanly into the root using a pattern match
       - name: Download All Platform Artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: geode-build-*
-          merge-multiple: true
-          path: .
+          path: artifacts
+      
+      # FIX: Flatten and extract both platform builds into a single "out" directory
+      - name: Organize artifacts
+        run: |
+          mkdir -p out
+          find artifacts -name "*.geode" -exec cp {} out/ \;
+          ls -la out/
 
       - uses: geode-sdk/build-geode-mod/combine@main
         id: build
+        with:
+          build-folder: out
 
       - uses: actions/upload-artifact@v4
         with:
