@@ -30,15 +30,12 @@ jobs:
         with:
           target: ${{ matrix.config.target }}
 
+      # FIX 1: Explicitly target the root directory where Geode v5 saves the output file
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: geode-build-${{ matrix.config.name }}
-          path: |
-            build/**/*.geode
-            build/**/*.so
-            build/**/*.dll
-            *.geode
+          path: ./*.geode
 
   combine:
     name: Combine builds
@@ -53,11 +50,15 @@ jobs:
           pattern: geode-build-*
           path: artifacts
       
-      # FIX: Flatten and extract both platform builds into a single "out" directory
+      # FIX 2: Better debugging and flat flattening to verify the downloads
       - name: Organize artifacts
         run: |
           mkdir -p out
+          echo "=== Scanning Downloaded Artifacts ==="
+          find artifacts -type f
+          echo "=== Copying packages to merging directory ==="
           find artifacts -name "*.geode" -exec cp {} out/ \;
+          echo "=== Verifying Target Directory Contents ==="
           ls -la out/
 
       - uses: geode-sdk/build-geode-mod/combine@main
@@ -65,7 +66,9 @@ jobs:
         with:
           build-folder: out
 
-      - uses: actions/upload-artifact@v4
+      # FIX 3: Accurately grabs the completed multi-platform bundle output
+      - name: Upload Combined Package
+        uses: actions/upload-artifact@v4
         with:
           name: Cosmic-Bowling-Lounge-Mod
           path: ${{ steps.build.outputs.build-output }}
