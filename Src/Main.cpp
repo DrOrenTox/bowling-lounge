@@ -1,10 +1,13 @@
 #include <Geode/Bindings.hpp>
-#include <Geode/modify/PlayLayer.hpp>
+#include <Geode/modify/MenuLayer.hpp>
 #include <random>
 #include <string>
 
 using namespace geode::prelude;
 
+// ============================================================================
+// GLOBAL STATE & CORE GAMEPLAY VARIABLES
+// ============================================================================
 int g_pinsKnockedDown = 0;
 bool g_isStrikeAwarded = false;
 std::string g_myRoomID = "00000";
@@ -13,32 +16,9 @@ bool g_isInPrivateRoom = false;
 void syncPinDropWithGlobed(int pinID);
 void awardStrike();
 
-class BowlingPin : public GameObject {
-public:
-    int pinID;
-    bool isKnockedOver = false;
-
-    static BowlingPin* create(int id) {
-        auto ret = new BowlingPin();
-        if (ret && ret->initWithSpriteFrameName("square01_001.png")) {
-            ret->pinID = id;
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
-
-    void knockOver() {
-        if (!isKnockedOver) {
-            isKnockedOver = true;
-            g_pinsKnockedDown++;
-            this->setVisible(false);
-            log::info("Pin #{} knocked down! Total: {}", pinID, g_pinsKnockedDown);
-        }
-    }
-};
-
+// ============================================================================
+// CUSTOM ROOM MANAGEMENT LOGIC
+// ============================================================================
 namespace CosmicRoomManager {
     std::string generateRoomCode() {
         std::random_device rd;
@@ -50,87 +30,97 @@ namespace CosmicRoomManager {
     void hostNewRoom() {
         g_myRoomID = generateRoomCode();
         g_isInPrivateRoom = true;
-        log::info("Hosted a new cosmic bowling room! Invite Code: {}", g_myRoomID);
+        log::info("Hosted a new cosmic bowling room via MenuLayer! Invite Code: {}", g_myRoomID);
     }
 }
 
+// ============================================================================
+// GLOBED API PLACEHOLDERS
+// ============================================================================
 namespace GlobedAPI {
     size_t getRoomPlayerCount() {
-        return 0;
+        return 0; // Simulated connection count
     }
 }
 
-class $modify(CosmicBowlingManager, PlayLayer) {
-    bool init(GJGameLevel* level, bool useReplay, bool dontRunOnRestart) {
-        if (!PlayLayer::init(level, useReplay, dontRunOnRestart)) {
+// ============================================================================
+// GEODE HOOK: MENULAYER (MAIN DASHBOARD INTEGRATION)
+// ============================================================================
+class $modify(CosmicMenuButtonManager, MenuLayer) {
+    bool init() {
+        if (!MenuLayer::init()) {
             return false;
         }
 
-        g_pinsKnockedDown = 0;
-        g_isStrikeAwarded = false;
-
-        if (level->m_levelID == 12345678) {
-            if (!g_isInPrivateRoom) {
-                CosmicRoomManager::hostNewRoom();
+        // 1. Target the exact bottom layout row where the Account & Garage buttons live
+        auto* bottomMenu = this->getChildByID("bottom-menu");
+        if (bottomMenu) {
+            
+            // 2. Create the physical visual icon for your mod 
+            auto* bowlingSprite = CCSprite::createWithSpriteFrameName("square01_001.png");
+            if (bowlingSprite) {
+                // Give it a bright cosmic cyan-blue theme color to stand out in the row layout
+                bowlingSprite->setColor({ 0, 180, 255 }); 
             }
 
-            std::string displayText = "ROOM: " + g_myRoomID;
-            auto* roomLabel = CCLabelBMFont::create(displayText.c_str(), "goldFont.fnt");
-            
-            roomLabel->setScale(0.5f);
-            roomLabel->setOpacity(180); 
-            
-            auto winSize = CCDirector::sharedDirector()->getWinSize();
-            roomLabel->setPosition({ 60, winSize.height - 40 });
-            roomLabel->setZOrder(999); 
-            
-            this->addChild(roomLabel);
+            // 3. Turn the visual icon asset into an interactive menu selection item
+            auto* bowlingButton = CCMenuItemSpriteExtra::create(
+                bowlingSprite,
+                this,
+                menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
+            );
 
-            size_t currentLoungePlayers = GlobedAPI::getRoomPlayerCount();
-            if (currentLoungePlayers > 8) {
-                auto alert = FLAlertLayer::create("Lounge Full", "This cosmic bowling lane is limited to 8 players!", "Okey");
-                alert->show();
-                this->onQuit(); // FIX: Removed 'nullptr' argument to match Geode v5 signature
-                return false;
+            if (bowlingButton) {
+                // 4. Register a unique tracking tracking ID for layout compatibility
+                bowlingButton->setID("cosmic-bowling-shortcut");
+
+                // 5. Inject the item into the container and force the row to resize seamlessly
+                bottomMenu->addChild(bowlingButton);
+                bottomMenu->updateLayout();
             }
         }
         return true;
     }
 
-    void update(float dt) {
-        PlayLayer::update(dt);
+    // This function automatically executes whenever a user clicks your menu item
+    void onCosmicBowlingLoungeTap(CCObject* sender) {
+        // Initialize room configurations directly from the title screen interface
+        if (!g_isInPrivateRoom) {
+            CosmicRoomManager::hostNewRoom();
+        }
 
-        auto* player = m_player1;
-        if (!player) return;
-
-        CCRect playerBox = player->boundingBox();
-        auto* objects = m_objects;
+        size_t currentLoungePlayers = GlobedAPI::getRoomPlayerCount();
         
-        // FIX: Replaced legacy CCARRAY_FOREACH macro with modern CCArrayExt iteration
-        for (auto obj : CCArrayExt<cocos2d::CCObject*>(objects)) {
-            auto* currentPin = dynamic_cast<BowlingPin*>(obj);
-            if (currentPin && !currentPin->isKnockedOver) {
-                CCRect pinBox = currentPin->boundingBox();
-                if (playerBox.intersectsRect(pinBox)) {
-                    currentPin->knockOver();
-                    syncPinDropWithGlobed(currentPin->pinID);
-                }
-            }
+        if (currentLoungePlayers > 8) {
+            auto* alert = FLAlertLayer::create(
+                "Lounge Full", 
+                "This cosmic bowling lane is limited to 8 players!", 
+                "Okey"
+            );
+            alert->show();
+            return;
         }
 
-        if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
-            g_isStrikeAwarded = true;
-            awardStrike();
-        }
+        // Display interface panel on successful launch execution
+        std::string alertMessage = "Connecting to private lounge deck...\nROOM CODE: " + g_myRoomID;
+        auto* layerAlert = FLAlertLayer::create(
+            "Cosmic Bowling", 
+            alertMessage.c_str(), 
+            "Launch!"
+        );
+        layerAlert->show();
     }
 };
 
+// ============================================================================
+// INTERMOD PACKET SYNCHRONIZATION WITH GLOBED
+// ============================================================================
 void syncPinDropWithGlobed(int pinID) {
     if (Loader::get()->isModLoaded("dankmeme.globed2")) {
         std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
         auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
         if (targetMod) {
-             log::info("Broadcasting Intermod Packet: {}", message);
+             log::info("Broadcasting Intermod Packet from menu: {}", message);
         }
     }
 }
