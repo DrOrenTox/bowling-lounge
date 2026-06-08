@@ -13,8 +13,8 @@ using namespace geode::prelude;
 struct PinEntity {
     CCSprite* sprite = nullptr;
     bool isKnockedDown = false;
-    float vx = 0.0f;        // Horizontal flight velocity
-    float vy = 0.0f;        // Vertical flight velocity
+    float vx = 0.0f;
+    float vy = 0.0f;
     float rotationSpeed = 0.0f;
 };
 
@@ -50,7 +50,7 @@ namespace CosmicRoomManager {
 class BowlingLoungeLayer : public CCLayer {
 protected:
     CCSprite* m_bowlingBall = nullptr;
-    std::vector<PinEntity> m_pinDeck; // Tracks all physical pin states
+    std::vector<PinEntity> m_pinDeck;
     CCLabelBMFont* m_scoreLabel = nullptr;
     bool m_ballIsRolling = false;
     float m_ballVelocityX = 0.0f;
@@ -67,7 +67,7 @@ protected:
 
         // 2. Wooden Lane Layout
         auto* lane = CCLayerColor::create(ccc4(210, 160, 100, 255));
-        lane->setContentSize({ winSize.width * 0.8f, 100.0f }); // Widened the lane for trajectory offsets
+        lane->setContentSize({ winSize.width * 0.8f, 100.0f });
         lane->setPosition({ winSize.width * 0.1f, winSize.height * 0.25f });
         this->addChild(lane, -1);
 
@@ -112,10 +112,7 @@ protected:
         exitButton->setPosition({ winSize.width * 0.75f, winSize.height * 0.10f });
         actionMenu->addChild(exitButton);
 
-        // 5. Instantiation arrays
         setupAlleyEntities();
-
-        // 6. Physics Tick Thread Execution Hook
         this->scheduleUpdate();
 
         return true;
@@ -124,7 +121,6 @@ protected:
     void setupAlleyEntities() {
         auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-        // Safe clearance checklist execution loops
         if (m_bowlingBall) m_bowlingBall->removeFromParent();
         for (auto& pin : m_pinDeck) {
             if (pin.sprite) pin.sprite->removeFromParent();
@@ -135,37 +131,30 @@ protected:
         m_ballVelocityX = 0.0f;
         m_ballVelocityY = 0.0f;
 
-        // Create Physical Bowling Ball Node
         m_bowlingBall = CCSprite::createWithSpriteFrameName("p_firework_01.png");
         m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
-        m_bowlingBall->setColor({ 130, 50, 250 }); // Deep cosmic purple
+        m_bowlingBall->setColor({ 130, 50, 250 });
         m_bowlingBall->setScale(1.8f);
         this->addChild(m_bowlingBall);
 
-        // Define precise coordinate map arrays for a classic triangle pin layout
         float startX = winSize.width * 0.72f;
         float centerY = winSize.height * 0.38f;
         float spacingX = 18.0f;
         float spacingY = 16.0f;
 
         std::vector<CCPoint> targetCoords = {
-            // Row 1 (Headpin)
             { startX, centerY },
-            // Row 2
             { startX + spacingX, centerY - spacingY }, 
             { startX + spacingX, centerY + spacingY },
-            // Row 3
             { startX + (spacingX * 2), centerY - (spacingY * 2) }, 
             { startX + (spacingX * 2), centerY }, 
             { startX + (spacingX * 2), centerY + (spacingY * 2) },
-            // Row 4
             { startX + (spacingX * 3), centerY - (spacingY * 3) }, 
             { startX + (spacingX * 3), centerY - spacingY }, 
             { startX + (spacingX * 3), centerY + spacingY }, 
             { startX + (spacingX * 3), centerY + (spacingY * 3) }
         };
 
-        // Construct 10 physical kinetic Pin items
         for (const auto& coordinate : targetCoords) {
             PinEntity pin;
             pin.sprite = CCSprite::createWithSpriteFrameName("slidergroove.png");
@@ -188,9 +177,8 @@ protected:
     void onRollBall(CCObject*) {
         if (!m_ballIsRolling) {
             m_ballIsRolling = true;
-            m_ballVelocityX = 8.5f; // Horizontal rolling power speed
+            m_ballVelocityX = 8.5f;
             
-            // Add a slight random variation to the vertical angle so the ball doesn't hit perfectly straight every roll!
             std::random_device rd;
             std::mt19937 gen(rd());
             std::uniform_real_distribution<float> distr(-0.4f, 0.4f);
@@ -217,9 +205,8 @@ protected:
         if (m_ballIsRolling && m_bowlingBall) {
             m_bowlingBall->setPositionX(m_bowlingBall->getPositionX() + m_ballVelocityX);
             m_bowlingBall->setPositionY(m_bowlingBall->getPositionY() + m_ballVelocityY);
-            m_bowlingBall->setRotation(m_bowlingBall->getRotation() + 15.0f); // Fast ball rolling rotation spin
+            m_bowlingBall->setRotation(m_bowlingBall->getRotation() + 15.0f);
 
-            // Check spatial collisions against standing pins
             auto ballBox = m_bowlingBall->boundingBox();
             for (size_t i = 0; i < m_pinDeck.size(); ++i) {
                 auto& pin = m_pinDeck[i];
@@ -228,15 +215,12 @@ protected:
                     pin.isKnockedDown = true;
                     g_pinsKnockedDown++;
 
-                    // KINETIC FLIGHT FORMULA: Send the pin flying backward depending on how hard the ball hit it
-                    pin.vx = m_ballVelocityX * 0.75f; // Transferred energy
-                    pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f; // Fly outward on impact
-                    pin.rotationSpeed = 25.0f; // Fast spinning effect
+                    pin.vx = m_ballVelocityX * 0.75f;
+                    pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f;
+                    pin.rotationSpeed = 25.0f;
 
-                    // Change color to indicate it was hit
                     pin.sprite->setColor({ 255, 100, 100 });
 
-                    // Output scores updates
                     std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
                     m_scoreLabel->setString(scoreStr.c_str());
 
@@ -248,132 +232,123 @@ protected:
                     }
                 }
             }
-// Gutter boundary checker loop resets
-if (m_bowlingBall->getPositionX() > winSize.width) {
-m_ballIsRolling = false;
-m_ballVelocityX = 0.0f;
-m_ballVelocityY = 0.0f;
-m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
-}
-}
 
-// 2. PIN FLYING PHYSICS TICK ENGINE
-// This is what makes hit pins physically fly and crash across your screen!
-for (auto& pin : m_pinDeck) {
-if (pin.isKnockedDown) {
-// Apply flight velocities
-pin.sprite->setPositionX(pin.sprite->getPositionX() + pin.vx);
-pin.sprite->setPositionY(pin.sprite->getPositionY() + pin.vy);
-pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
+            if (m_bowlingBall->getPositionX() > winSize.width) {
+                m_ballIsRolling = false;
+                m_ballVelocityX = 0.0f;
+                m_ballVelocityY = 0.0f;
+                m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
+            }
+        }
 
-// Chain Collisions: Check if a flying pin crashes into another standing pin!
-auto flyingPinBox = pin.sprite->boundingBox();
-for (size_t j = 0; j < m_pinDeck.size(); ++j) {
-auto& otherPin = m_pinDeck[j];
-if (!otherPin.isKnockedDown && flyingPinBox.intersectsRect(otherPin.sprite->boundingBox())) {
-otherPin.isKnockedDown = true;
-g_pinsKnockedDown++;
+        // 2. PIN FLYING PHYSICS TICK ENGINE
+        for (auto& pin : m_pinDeck) {
+            if (pin.isKnockedDown) {
+                pin.sprite->setPositionX(pin.sprite->getPositionX() + pin.vx);
+                pin.sprite->setPositionY(pin.sprite->getPositionY() + pin.vy);
+                pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
 
-// Pass along a portion of the kinetic speed to the next pin!
-otherPin.vx = pin.vx * 0.65f;
-otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0.5f;
-otherPin.rotationSpeed = 20.0f;
-otherPin.sprite->setColor({ 255, 150, 100 });
+                auto flyingPinBox = pin.sprite->boundingBox();
+                for (size_t j = 0; j < m_pinDeck.size(); ++j) {
+                    auto& otherPin = m_pinDeck[j];
+                    if (!otherPin.isKnockedDown && flyingPinBox.intersectsRect(otherPin.sprite->boundingBox())) {
+                        otherPin.isKnockedDown = true;
+                        g_pinsKnockedDown++;
 
-m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
-syncPinDropWithGlobed(static_cast(j));
-}
-}
+                        otherPin.vx = pin.vx * 0.65f;
+                        otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0.5f;
+                        otherPin.rotationSpeed = 20.0f;
+                        otherPin.sprite->setColor({ 255, 150, 100 });
 
-// Air resistance / Friction simulation: slow down the flight spin gradually
-pin.vx *= 0.95f;
-pin.vy *= 0.95f;
-pin.rotationSpeed *= 0.95f;
+                        m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
+                        syncPinDropWithGlobed(static_cast<int>(j));  // ✅ FIXED: Added <int>
+                    }
+                }
 
-// Fade out pins once they fly off screen or stop moving
-if (pin.sprite->getPositionX() > winSize.width || std::abs(pin.vx) < 0.1f) {
-pin.sprite->setVisible(false);
-}
-}
-}
-}
+                pin.vx *= 0.95f;
+                pin.vy *= 0.95f;
+                pin.rotationSpeed *= 0.95f;
+
+                if (pin.sprite->getPositionX() > winSize.width || fabsf(pin.vx) < 0.1f) {
+                    pin.sprite->setVisible(false);
+                }
+            }
+        }
+    }
 
 public:
-static BowlingLoungeLayer* create() {
-auto* ret = new BowlingLoungeLayer();
-if (ret && ret->init()) {
-ret->autorelease();
-return ret;
-}
-CC_SAFE_DELETE(ret);
-return nullptr;
-}
+    static BowlingLoungeLayer* create() {
+        auto* ret = new BowlingLoungeLayer();
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
 
-static CCScene* scene() {
-auto* scene = CCScene::create();
-auto* layer = BowlingLoungeLayer::create();
-scene->addChild(layer);
-return scene;
-}
+    static CCScene* scene() {
+        auto* scene = CCScene::create();
+        auto* layer = BowlingLoungeLayer::create();
+        scene->addChild(layer);
+        return scene;
+    }
 };
 
 // ============================================================================
 // GEODE HOOK: MENULAYER (MAIN DASHBOARD INTEGRATION)
 // ============================================================================
 class $modify(CosmicMenuButtonManager, MenuLayer) {
-bool init() {
-if (!MenuLayer::init()) return false;
+    bool init() {
+        if (!MenuLayer::init()) return false;
 
-auto* bottomMenu = this->getChildByID("bottom-menu");
-if (bottomMenu) {
-auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
-if (bowlingSprite) {
-bowlingSprite->setColor({ 0, 180, 255 });
-}
+        auto* bottomMenu = this->getChildByID("bottom-menu");
+        if (bottomMenu) {
+            auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
+            if (bowlingSprite) {
+                bowlingSprite->setColor({ 0, 180, 255 });
+            }
 
-auto* bowlingButton = CCMenuItemSpriteExtra::create(
-bowlingSprite,
-this,
-menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
-);
+            auto* bowlingButton = CCMenuItemSpriteExtra::create(
+                bowlingSprite,
+                this,
+                menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
+            );
 
-if (bowlingButton) {
-bowlingButton->setID("cosmic-bowling-shortcut");
-bottomMenu->addChild(bowlingButton);
-bottomMenu->updateLayout();
-}
-}
-return true;
-}
+            if (bowlingButton) {
+                bowlingButton->setID("cosmic-bowling-shortcut");
+                bottomMenu->addChild(bowlingButton);
+                bottomMenu->updateLayout();
+            }
+        }
+        return true;
+    }
 
-void onCosmicBowlingLoungeTap(CCObject* sender) {
-if (!g_isInPrivateRoom) {
-CosmicRoomManager::hostNewRoom();
-}
+    void onCosmicBowlingLoungeTap(CCObject* sender) {
+        if (!g_isInPrivateRoom) {
+            CosmicRoomManager::hostNewRoom();
+        }
 
-auto* loungeScene = BowlingLoungeLayer::scene();
-CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
-}
+        auto* loungeScene = BowlingLoungeLayer::scene();
+        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
+    }
 };
 
 // ============================================================================
 // INTERMOD PACKET SYNCHRONIZATION WITH GLOBED
 // ============================================================================
 void syncPinDropWithGlobed(int pinID) {
-if (Loader::get()->isModLoaded("dankmeme.globed2")) {
-std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
-auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
-if (targetMod) {
-log::info("Broadcasting Intermod Packet from menu: {}", message);
-}
-}
+    if (Loader::get()->isModLoaded("dankmeme.globed2")) {
+        std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
+        auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
+        if (targetMod) {
+            log::info("Broadcasting Intermod Packet from menu: {}", message);
+        }
+    }
 }
 
 void awardStrike() {
-log::info("STRIKE! Awarding synchronized cosmic lane points.");
-auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
-alert->show();
+    log::info("STRIKE! Awarding synchronized cosmic lane points.");
+    auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
+    alert->show();
 }
-
-
-
