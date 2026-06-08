@@ -61,15 +61,36 @@ protected:
 
         auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-        // 1. Lounge Background (Arcade theme)
-        auto* bg = CCLayerColor::create(ccc4(15, 12, 28, 255));
-        this->addChild(bg, -2);
+        // 1. FIXED: Cosmic Background Setup utilizing packaged texture assets
+        auto* bgSprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/cosmic_bg.png");
+        if (bgSprite) {
+            bgSprite->setPosition({ winSize.width / 2, winSize.height / 2 });
+            // Dynamic scale configuration to perfectly cover tablet/mobile screens
+            float scaleX = winSize.width / bgSprite->getContentSize().width;
+            float scaleY = winSize.height / bgSprite->getContentSize().height;
+            bgSprite->setScaleX(scaleX);
+            bgSprite->setScaleY(scaleY);
+            this->addChild(bgSprite, -2);
+        } else {
+            auto* fallbackBg = CCLayerColor::create(ccc4(15, 12, 28, 255));
+            this->addChild(fallbackBg, -2);
+        }
 
-        // 2. Wooden Lane Layout
-        auto* lane = CCLayerColor::create(ccc4(210, 160, 100, 255));
-        lane->setContentSize({ winSize.width * 0.8f, 100.0f });
-        lane->setPosition({ winSize.width * 0.1f, winSize.height * 0.25f });
-        this->addChild(lane, -1);
+        // 2. FIXED: Wooden Lane Texture Mapping 
+        auto* laneSprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/lane_floor.png");
+        if (laneSprite) {
+            laneSprite->setPosition({ winSize.width / 2, winSize.height * 0.38f });
+            float laneScaleX = (winSize.width * 0.85f) / laneSprite->getContentSize().width;
+            float laneScaleY = 120.0f / laneSprite->getContentSize().height;
+            laneSprite->setScaleX(laneScaleX);
+            laneSprite->setScaleY(laneScaleY);
+            this->addChild(laneSprite, -1);
+        } else {
+            auto* fallbackLane = CCLayerColor::create(ccc4(210, 160, 100, 255));
+            fallbackLane->setContentSize({ winSize.width * 0.8f, 100.0f });
+            fallbackLane->setPosition({ winSize.width * 0.1f, winSize.height * 0.25f });
+            this->addChild(fallbackLane, -1);
+        }
 
         // 3. UI Header Strings
         auto titleStr = "Cosmic Alley — Room: " + g_myRoomID;
@@ -131,10 +152,14 @@ protected:
         m_ballVelocityX = 0.0f;
         m_ballVelocityY = 0.0f;
 
-        m_bowlingBall = CCSprite::createWithSpriteFrameName("p_firework_01.png");
+        // FIX: Creating custom mod asset container calls safely instead of fallback icons
+        m_bowlingBall = CCSprite::create("mateo18023.cosmic_bowling_lounge/bowling_ball.png");
+        if (!m_bowlingBall) {
+            m_bowlingBall = CCSprite::createWithSpriteFrameName("p_firework_01.png");
+            m_bowlingBall->setColor({ 130, 50, 250 });
+        }
         m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
-        m_bowlingBall->setColor({ 130, 50, 250 });
-        m_bowlingBall->setScale(1.8f);
+        m_bowlingBall->setScale(1.2f);
         this->addChild(m_bowlingBall);
 
         float startX = winSize.width * 0.72f;
@@ -147,7 +172,7 @@ protected:
             { startX + spacingX, centerY - spacingY }, 
             { startX + spacingX, centerY + spacingY },
             { startX + (spacingX * 2), centerY - (spacingY * 2) }, 
-            { startX + (spacingX * 2), centerY }, 
+            { startX + (spacingX * 2), centerY },
             { startX + (spacingX * 2), centerY + (spacingY * 2) },
             { startX + (spacingX * 3), centerY - (spacingY * 3) }, 
             { startX + (spacingX * 3), centerY - spacingY }, 
@@ -157,12 +182,18 @@ protected:
 
         for (const auto& coordinate : targetCoords) {
             PinEntity pin;
-            pin.sprite = CCSprite::createWithSpriteFrameName("slidergroove.png");
-            pin.sprite->setPosition(coordinate);
-            pin.sprite->setColor({ 255, 255, 255 });
-            pin.sprite->setScaleX(0.5f);
-            pin.sprite->setScaleY(1.4f);
+            // FIX: Load your striped custom bowling pin asset
+            pin.sprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/bowling_pin.png");
+            if (!pin.sprite) {
+                pin.sprite = CCSprite::createWithSpriteFrameName("slidergroove.png");
+                pin.sprite->setColor({ 255, 255, 255 });
+                pin.sprite->setScaleX(0.5f);
+                pin.sprite->setScaleY(1.4f);
+            } else {
+                pin.sprite->setScale(1.0f);
+            }
             
+            pin.sprite->setPosition(coordinate);
             this->addChild(pin.sprite);
             
             pin.isKnockedDown = false;
@@ -216,139 +247,147 @@ protected:
                     g_pinsKnockedDown++;
 
                     pin.vx = m_ballVelocityX * 0.75f;
-                    pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f;
-                    pin.rotationSpeed = 25.0f;
+pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f;
+pin.rotationSpeed = 25.0f;
 
-                    pin.sprite->setColor({ 255, 100, 100 });
+// Give a slight impact flash if standard fallback frames are active
+if (!Loader::get()->getLoadedMod("mateo18023.cosmic_bowling_lounge")) {
+pin.sprite->setColor({ 255, 100, 100 });
+}
 
-                    std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
-                    m_scoreLabel->setString(scoreStr.c_str());
+std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
+m_scoreLabel->setString(scoreStr.c_str());
 
-                    syncPinDropWithGlobed(static_cast<int>(i));
+syncPinDropWithGlobed(static_cast(i));
 
-                    if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
-                        g_isStrikeAwarded = true;
-                        awardStrike();
-                    }
-                }
-            }
+if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
+g_isStrikeAwarded = true;
+awardStrike();
+}
+}
+}
 
-            if (m_bowlingBall->getPositionX() > winSize.width) {
-                m_ballIsRolling = false;
-                m_ballVelocityX = 0.0f;
-                m_ballVelocityY = 0.0f;
-                m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
-            }
-        }
+if (m_bowlingBall->getPositionX() > winSize.width) {
+m_ballIsRolling = false;
+m_ballVelocityX = 0.0f;
+m_ballVelocityY = 0.0f;
+m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
+}
+}
 
-        // 2. PIN FLYING PHYSICS TICK ENGINE
-        for (auto& pin : m_pinDeck) {
-            if (pin.isKnockedDown) {
-                pin.sprite->setPositionX(pin.sprite->getPositionX() + pin.vx);
-                pin.sprite->setPositionY(pin.sprite->getPositionY() + pin.vy);
-                pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
+// 2. OPTIMIZED: PIN FLYING PHYSICS TICK ENGINE (Broke Infinite Frame Callbacks)
+for (size_t i = 0; i < m_pinDeck.size(); ++i) {
+auto& pin = m_pinDeck[i];
+if (pin.isKnockedDown && pin.sprite->isVisible()) {
+pin.sprite->setPositionX(pin.sprite->getPositionX() + pin.vx);
+pin.sprite->setPositionY(pin.sprite->getPositionY() + pin.vy);
+pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
 
-                auto flyingPinBox = pin.sprite->boundingBox();
-                for (size_t j = 0; j < m_pinDeck.size(); ++j) {
-                    auto& otherPin = m_pinDeck[j];
-                    if (!otherPin.isKnockedDown && flyingPinBox.intersectsRect(otherPin.sprite->boundingBox())) {
-                        otherPin.isKnockedDown = true;
-                        g_pinsKnockedDown++;
+auto flyingPinBox = pin.sprite->boundingBox();
+for (size_t j = 0; j < m_pinDeck.size(); ++j) {
+// CRITICAL FIX: skip comparing a pin against itself or pins that are already active flying models
+if (i == j) continue;
 
-                        otherPin.vx = pin.vx * 0.65f;
-                        otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0.5f;
-                        otherPin.rotationSpeed = 20.0f;
-                        otherPin.sprite->setColor({ 255, 150, 100 });
+auto& otherPin = m_pinDeck[j];
+if (!otherPin.isKnockedDown && flyingPinBox.intersectsRect(otherPin.sprite->boundingBox())) {
+otherPin.isKnockedDown = true;
+g_pinsKnockedDown++;
 
-                        m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
-                        syncPinDropWithGlobed(static_cast<int>(j));  // ✅ FIXED: Added <int>
-                    }
-                }
+otherPin.vx = pin.vx * 0.65f;
+otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0.5f;
+otherPin.rotationSpeed = 20.0f;
 
-                pin.vx *= 0.95f;
-                pin.vy *= 0.95f;
-                pin.rotationSpeed *= 0.95f;
+m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
+syncPinDropWithGlobed(static_cast(j));
+}
+}
 
-                if (pin.sprite->getPositionX() > winSize.width || fabsf(pin.vx) < 0.1f) {
-                    pin.sprite->setVisible(false);
-                }
-            }
-        }
-    }
+pin.vx *= 0.95f;
+pin.vy *= 0.95f;
+pin.rotationSpeed *= 0.95f;
+
+if (pin.sprite->getPositionX() > winSize.width || fabsf(pin.vx) < 0.1f) {
+pin.sprite->setVisible(false);
+}
+}
+}
+}
 
 public:
-    static BowlingLoungeLayer* create() {
-        auto* ret = new BowlingLoungeLayer();
-        if (ret && ret->init()) {
-            ret->autorelease();
-            return ret;
-        }
-        CC_SAFE_DELETE(ret);
-        return nullptr;
-    }
+static BowlingLoungeLayer* create() {
+auto* ret = new BowlingLoungeLayer();
+if (ret && ret->init()) {
+ret->autorelease();
+return ret;
+}
+CC_SAFE_DELETE(ret);
+return nullptr;
+}
 
-    static CCScene* scene() {
-        auto* scene = CCScene::create();
-        auto* layer = BowlingLoungeLayer::create();
-        scene->addChild(layer);
-        return scene;
-    }
+static CCScene* scene() {
+auto* scene = CCScene::create();
+auto* layer = BowlingLoungeLayer::create();
+scene->addChild(layer);
+return scene;
+}
 };
 
 // ============================================================================
 // GEODE HOOK: MENULAYER (MAIN DASHBOARD INTEGRATION)
 // ============================================================================
 class $modify(CosmicMenuButtonManager, MenuLayer) {
-    bool init() {
-        if (!MenuLayer::init()) return false;
+bool init() {
+if (!MenuLayer::init()) return false;
 
-        auto* bottomMenu = this->getChildByID("bottom-menu");
-        if (bottomMenu) {
-            auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
-            if (bowlingSprite) {
-                bowlingSprite->setColor({ 0, 180, 255 });
-            }
+auto* bottomMenu = this->getChildByID("bottom-menu");
+if (bottomMenu) {
+auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
+if (bowlingSprite) {
+bowlingSprite->setColor({ 0, 180, 255 });
+}
 
-            auto* bowlingButton = CCMenuItemSpriteExtra::create(
-                bowlingSprite,
-                this,
-                menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
-            );
+auto* bowlingButton = CCMenuItemSpriteExtra::create(
+bowlingSprite,
+this,
+menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
+);
 
-            if (bowlingButton) {
-                bowlingButton->setID("cosmic-bowling-shortcut");
-                bottomMenu->addChild(bowlingButton);
-                bottomMenu->updateLayout();
-            }
-        }
-        return true;
-    }
+if (bowlingButton) {
+bowlingButton->setID("cosmic-bowling-shortcut");
+bottomMenu->addChild(bowlingButton);
+bottomMenu->updateLayout();
+}
+}
+return true;
+}
 
-    void onCosmicBowlingLoungeTap(CCObject* sender) {
-        if (!g_isInPrivateRoom) {
-            CosmicRoomManager::hostNewRoom();
-        }
+void onCosmicBowlingLoungeTap(CCObject* sender) {
+if (!g_isInPrivateRoom) {
+CosmicRoomManager::hostNewRoom();
+}
 
-        auto* loungeScene = BowlingLoungeLayer::scene();
-        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
-    }
+auto* loungeScene = BowlingLoungeLayer::scene();
+CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
+}
 };
 
 // ============================================================================
 // INTERMOD PACKET SYNCHRONIZATION WITH GLOBED
 // ============================================================================
 void syncPinDropWithGlobed(int pinID) {
-    if (Loader::get()->isModLoaded("dankmeme.globed2")) {
-        std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
-        auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
-        if (targetMod) {
-            log::info("Broadcasting Intermod Packet from menu: {}", message);
-        }
-    }
+if (Loader::get()->isModLoaded("dankmeme.globed2")) {
+std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
+auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
+if (targetMod) {
+log::info("Broadcasting Intermod Packet from menu: {}", message);
+}
+}
 }
 
 void awardStrike() {
-    log::info("STRIKE! Awarding synchronized cosmic lane points.");
-    auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
-    alert->show();
+log::info("STRIKE! Awarding synchronized cosmic lane points.");
+auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
+alert->show();
 }
+
+
