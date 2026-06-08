@@ -1,284 +1,34 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/MenuLayer.hpp>
 #include <random>
-#include <string>
-#include <vector>
-#include <cmath>
 
 using namespace geode::prelude;
 
-// ============================================================================
-// ENGINE STRUCTURES & GLOBAL STATE
-// ============================================================================
-struct PinEntity {
-    CCSprite* sprite = nullptr;
-    bool isKnockedDown = false;
-    float vx = 0.0f;
-    float vy = 0.0f;
-    float rotationSpeed = 0.0f;
-};
-
-int g_pinsKnockedDown = 0;
-bool g_isStrikeAwarded = false;
-std::string g_myRoomID = "00000";
-bool g_isInPrivateRoom = false;
-
-void syncPinDropWithGlobed(int pinID);
-void awardStrike();
-
-// ============================================================================
-// CUSTOM ROOM MANAGEMENT LOGIC
-// ============================================================================
-namespace CosmicRoomManager {
-    std::string generateRoomCode() {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> distr(10000, 99999);
-        return std::to_string(distr(gen));
-    }
-
-    void hostNewRoom() {
-        g_myRoomID = generateRoomCode();
-        g_isInPrivateRoom = true;
-        log::info("Hosted a new cosmic bowling room via MenuLayer! Invite Code: {}", g_myRoomID);
-    }
-}
-
-// ============================================================================
-// REAL BOWLING LOUNGE PLAYABLE ENVIRONMENT WITH DYNAMIC KINETICS
-// ============================================================================
-class BowlingLoungeLayer : public CCLayer {
+// Custom layer handling the game engine logic, textures, and interface
+class CosmicAlleyLayer : public CCLayer {
 protected:
-    CCSprite* m_bowlingBall = nullptr;
-    std::vector<PinEntity> m_pinDeck;
+    // Game Object Node pointers
+    CCSprite* m_ball = nullptr;
+    CCArray* m_pins = nullptr;
+    
+    // UI Label Element pointers
     CCLabelBMFont* m_scoreLabel = nullptr;
-    bool m_ballIsRolling = false;
-    float m_ballVelocityX = 0.0f;
-    float m_ballVelocityY = 0.0f;
+    CCLabelBMFont* m_pinsDownLabel = nullptr;
+    CCLabelBMFont* m_streakLabel = nullptr;
 
-    bool init() override {
-        if (!CCLayer::init()) return false;
-
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        // 1. Lounge Background (Arcade theme)
-        auto* bg = CCLayerColor::create(ccc4(15, 12, 28, 255));
-        this->addChild(bg, -2);
-
-        // 2. Wooden Lane Layout
-        auto* lane = CCLayerColor::create(ccc4(210, 160, 100, 255));
-        lane->setContentSize({ winSize.width * 0.8f, 100.0f });
-        lane->setPosition({ winSize.width * 0.1f, winSize.height * 0.25f });
-        this->addChild(lane, -1);
-
-        // 3. UI Header Strings
-        auto titleStr = "Cosmic Alley — Room: " + g_myRoomID;
-        auto* loungeTitle = CCLabelBMFont::create(titleStr.c_str(), "goldFont.fnt");
-        loungeTitle->setPosition({ winSize.width / 2, winSize.height - 30.0f });
-        loungeTitle->setScale(0.8f);
-        this->addChild(loungeTitle);
-
-        m_scoreLabel = CCLabelBMFont::create("Pins Down: 0", "bigFont.fnt");
-        m_scoreLabel->setPosition({ winSize.width / 2, winSize.height - 70.0f });
-        m_scoreLabel->setScale(0.5f);
-        this->addChild(m_scoreLabel);
-
-        // 4. Interactive Sandbox Menu Layout
-        auto* actionMenu = CCMenu::create();
-        actionMenu->setPosition(CCPointZero);
-        this->addChild(actionMenu);
-
-        // Roll Button
-        auto* rollBtnSprite = ButtonSprite::create("ROLL BALL", "goldFont.fnt", "GJ_button_01.png");
-        auto* rollButton = CCMenuItemSpriteExtra::create(
-            rollBtnSprite, this, menu_selector(BowlingLoungeLayer::onRollBall)
-        );
-        rollButton->setPosition({ winSize.width * 0.25f, winSize.height * 0.10f });
-        actionMenu->addChild(rollButton);
-
-        // Reset Lane Button
-        auto* resetBtnSprite = ButtonSprite::create("RESET LANE", "goldFont.fnt", "GJ_button_02.png");
-        auto* resetButton = CCMenuItemSpriteExtra::create(
-            resetBtnSprite, this, menu_selector(BowlingLoungeLayer::onResetAlley)
-        );
-        resetButton->setPosition({ winSize.width * 0.50f, winSize.height * 0.10f });
-        actionMenu->addChild(resetButton);
-
-        // Exit Button
-        auto* exitBtnSprite = ButtonSprite::create("EXIT TO MENU", "goldFont.fnt", "GJ_button_06.png");
-        auto* exitButton = CCMenuItemSpriteExtra::create(
-            exitBtnSprite, this, menu_selector(BowlingLoungeLayer::onExitLounge)
-        );
-        exitButton->setPosition({ winSize.width * 0.75f, winSize.height * 0.10f });
-        actionMenu->addChild(exitButton);
-
-        setupAlleyEntities();
-        this->scheduleUpdate();
-
-        return true;
-    }
-
-    void setupAlleyEntities() {
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        if (m_bowlingBall) m_bowlingBall->removeFromParent();
-        for (auto& pin : m_pinDeck) {
-            if (pin.sprite) pin.sprite->removeFromParent();
-        }
-        m_pinDeck.clear();
-
-        m_ballIsRolling = false;
-        m_ballVelocityX = 0.0f;
-        m_ballVelocityY = 0.0f;
-
-        m_bowlingBall = CCSprite::createWithSpriteFrameName("p_firework_01.png");
-        m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
-        m_bowlingBall->setColor({ 130, 50, 250 });
-        m_bowlingBall->setScale(1.8f);
-        this->addChild(m_bowlingBall);
-
-        float startX = winSize.width * 0.72f;
-        float centerY = winSize.height * 0.38f;
-        float spacingX = 18.0f;
-        float spacingY = 16.0f;
-
-        std::vector<CCPoint> targetCoords = {
-            { startX, centerY },
-            { startX + spacingX, centerY - spacingY }, 
-            { startX + spacingX, centerY + spacingY },
-            { startX + (spacingX * 2), centerY - (spacingY * 2) }, 
-            { startX + (spacingX * 2), centerY }, 
-            { startX + (spacingX * 2), centerY + (spacingY * 2) },
-            { startX + (spacingX * 3), centerY - (spacingY * 3) }, 
-            { startX + (spacingX * 3), centerY - spacingY }, 
-            { startX + (spacingX * 3), centerY + spacingY }, 
-            { startX + (spacingX * 3), centerY + (spacingY * 3) }
-        };
-
-        for (const auto& coordinate : targetCoords) {
-            PinEntity pin;
-            pin.sprite = CCSprite::createWithSpriteFrameName("slidergroove.png");
-            pin.sprite->setPosition(coordinate);
-            pin.sprite->setColor({ 255, 255, 255 });
-            pin.sprite->setScaleX(0.5f);
-            pin.sprite->setScaleY(1.4f);
-            
-            this->addChild(pin.sprite);
-            
-            pin.isKnockedDown = false;
-            pin.vx = 0.0f;
-            pin.vy = 0.0f;
-            pin.rotationSpeed = 0.0f;
-            
-            m_pinDeck.push_back(pin);
-        }
-    }
-
-    void onRollBall(CCObject*) {
-        if (!m_ballIsRolling) {
-            m_ballIsRolling = true;
-            m_ballVelocityX = 8.5f;
-            
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_real_distribution<float> distr(-0.4f, 0.4f);
-            m_ballVelocityY = distr(gen);
-        }
-    }
-
-    void onResetAlley(CCObject*) {
-        g_pinsKnockedDown = 0;
-        g_isStrikeAwarded = false;
-        m_scoreLabel->setString("Pins Down: 0");
-        setupAlleyEntities();
-    }
-
-    void onExitLounge(CCObject*) {
-        auto* menuScene = MenuLayer::scene(false);
-        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, menuScene));
-    }
-
-    void update(float delta) override {
-        auto winSize = CCDirector::sharedDirector()->getWinSize();
-
-        // 1. UPDATE BOWLING BALL POSITION
-        if (m_ballIsRolling && m_bowlingBall) {
-            m_bowlingBall->setPositionX(m_bowlingBall->getPositionX() + m_ballVelocityX);
-            m_bowlingBall->setPositionY(m_bowlingBall->getPositionY() + m_ballVelocityY);
-            m_bowlingBall->setRotation(m_bowlingBall->getRotation() + 15.0f);
-
-            auto ballBox = m_bowlingBall->boundingBox();
-            for (size_t i = 0; i < m_pinDeck.size(); ++i) {
-                auto& pin = m_pinDeck[i];
-                
-                if (!pin.isKnockedDown && ballBox.intersectsRect(pin.sprite->boundingBox())) {
-                    pin.isKnockedDown = true;
-                    g_pinsKnockedDown++;
-
-                    pin.vx = m_ballVelocityX * 0.75f;
-                    pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f;
-                    pin.rotationSpeed = 25.0f;
-
-                    pin.sprite->setColor({ 255, 100, 100 });
-
-                    std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
-                    m_scoreLabel->setString(scoreStr.c_str());
-
-                    syncPinDropWithGlobed(static_cast<int>(i));
-
-                    if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
-                        g_isStrikeAwarded = true;
-                        awardStrike();
-                    }
-                }
-            }
-
-            if (m_bowlingBall->getPositionX() > winSize.width) {
-                m_ballIsRolling = false;
-                m_ballVelocityX = 0.0f;
-                m_ballVelocityY = 0.0f;
-                m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
-            }
-        }
-
-        // 2. PIN FLYING PHYSICS TICK ENGINE
-        for (auto& pin : m_pinDeck) {
-            if (pin.isKnockedDown) {
-                pin.sprite->setPositionX(pin.sprite->getPositionX() + pin.vx);
-                pin.sprite->setPositionY(pin.sprite->getPositionY() + pin.vy);
-                pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
-
-                auto flyingPinBox = pin.sprite->boundingBox();
-                for (size_t j = 0; j < m_pinDeck.size(); ++j) {
-                    auto& otherPin = m_pinDeck[j];
-                    if (!otherPin.isKnockedDown && flyingPinBox.intersectsRect(otherPin.sprite->boundingBox())) {
-                        otherPin.isKnockedDown = true;
-                        g_pinsKnockedDown++;
-
-                        otherPin.vx = pin.vx * 0.65f;
-                        otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0.5f;
-                        otherPin.rotationSpeed = 20.0f;
-                        otherPin.sprite->setColor({ 255, 150, 100 });
-
-                        m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
-                        syncPinDropWithGlobed(static_cast<int>(j));  // ✅ FIXED: Added <int>
-                    }
-                }
-
-                pin.vx *= 0.95f;
-                pin.vy *= 0.95f;
-                pin.rotationSpeed *= 0.95f;
-
-                if (pin.sprite->getPositionX() > winSize.width || fabsf(pin.vx) < 0.1f) {
-                    pin.sprite->setVisible(false);
-                }
-            }
-        }
-    }
+    // Internal Game State tracking systems
+    bool m_isRolling = false;
+    int m_score = 0;
+    int m_pinsDownCount = 0;
+    int m_streakCount = 0;
+    
+    // Original spatial coordinates for game state resets
+    CCPoint m_ballStartPos;
 
 public:
-    static BowlingLoungeLayer* create() {
-        auto* ret = new BowlingLoungeLayer();
+    // Standard Cocos2d-x Layer Memory Allocator
+    static CosmicAlleyLayer* create() {
+        auto ret = new CosmicAlleyLayer();
         if (ret && ret->init()) {
             ret->autorelease();
             return ret;
@@ -287,68 +37,374 @@ public:
         return nullptr;
     }
 
-    static CCScene* scene() {
-        auto* scene = CCScene::create();
-        auto* layer = BowlingLoungeLayer::create();
-        scene->addChild(layer);
-        return scene;
-    }
-};
+    // Secondary setup layer initialization routing
+    bool init() override {
+        if (!CCLayer::init()) return false;
 
-// ============================================================================
-// GEODE HOOK: MENULAYER (MAIN DASHBOARD INTEGRATION)
-// ============================================================================
-class $modify(CosmicMenuButtonManager, MenuLayer) {
-    bool init() {
-        if (!MenuLayer::init()) return false;
+        // Schedule frames to monitor real-time physics simulation loops
+        this->scheduleUpdate();
 
-        auto* bottomMenu = this->getChildByID("bottom-menu");
-        if (bottomMenu) {
-            auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
-            if (bowlingSprite) {
-                bowlingSprite->setColor({ 0, 180, 255 });
-            }
+        // Safe heap initialization for object pointer arrays
+        m_pins = CCArray::create();
+        m_pins->retain();
 
-            auto* bowlingButton = CCMenuItemSpriteExtra::create(
-                bowlingSprite,
-                this,
-                menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
-            );
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+        m_ballStartPos = ccp(120, winSize.height / 2);
 
-            if (bowlingButton) {
-                bowlingButton->setID("cosmic-bowling-shortcut");
-                bottomMenu->addChild(bowlingButton);
-                bottomMenu->updateLayout();
-            }
+        // ==========================================
+        // 1. VISUAL LAYER INTERFACE GENERATION
+        // ==========================================
+
+        // Cosmic Alley Background Vector Setup (Z-Order 0)
+        auto bg = CCSprite::createWithSpriteFrameName("yourname.bowling_mod/alley_bg.png");
+        if (bg) {
+            bg->setPosition({winSize.width / 2, winSize.height / 2});
+            bg->setScaleX(winSize.width / bg->getContentSize().width);
+            bg->setScaleY(winSize.height / bg->getContentSize().height);
+            this->addChild(bg, 0);
         }
+
+        // Wooden Lane Floor Vector Setup (Z-Order 1)
+        auto lane = CCSprite::createWithSpriteFrameName("yourname.bowling_mod/alley_floor.png");
+        if (lane) {
+            lane->setPosition({winSize.width / 2, winSize.height / 2});
+            lane->setRotation(90.0f); // Rotates horizontal to span the side-view lane
+            
+            float scaleX = winSize.width / lane->getContentSize().height;
+            float scaleY = (winSize.height * 0.6f) / lane->getContentSize().width;
+            lane->setScaleX(scaleX);
+            lane->setScaleY(scaleY);
+            this->addChild(lane, 1);
+        }
+
+        // Cyan Bowling Ball Vector Setup (Z-Order 2)
+        m_ball = CCSprite::createWithSpriteFrameName("yourname.bowling_mod/alley_ball.png");
+        if (m_ball) {
+            m_ball->setScale(0.35f);
+            m_ball->setPosition(m_ballStartPos);
+            this->addChild(m_ball, 2);
+        }
+
+        // Generate the 10-pin triangle layout grid configuration
+        setupBowlingPins();
+
+        // ==========================================
+        // 2. USER INTERFACE & LABELS LAYOUT
+        // ==========================================
+
+        auto uiMenu = CCMenu::create();
+        uiMenu->setPosition({0, 0});
+        this->addChild(uiMenu, 3);
+
+        // Header Title Label (Matching your original screen design specifications)
+        auto titleText = CCLabelBMFont::create("COSMIC ALLEY  ROOM: 84374", "goldFont.fnt");
+        titleText->setPosition({winSize.width / 2, winSize.height - 35});
+        titleText->setScale(0.75f);
+        this->addChild(titleText, 3);
+
+        // Real-time Pins Down Display text indicator
+        m_pinsDownLabel = CCLabelBMFont::create("PINS DOWN: 0", "bigFont.fnt");
+        m_pinsDownLabel->setPosition({winSize.width / 2, winSize.height - 75});
+        m_pinsDownLabel->setScale(0.6f);
+        this->addChild(m_pinsDownLabel, 3);
+
+        // Cumulative Mod Score tracking status board
+        m_scoreLabel = CCLabelBMFont::create("SCORE: 0000", "goldFont.fnt");
+        m_scoreLabel->setPosition({80, winSize.height - 35});
+        m_scoreLabel->setScale(0.55f);
+        this->addChild(m_scoreLabel, 3);
+
+        // Consecutive Win/Strike streak display text counter
+        m_streakLabel = CCLabelBMFont::create("STREAK: 0", "bigFont.fnt");
+        m_streakLabel->setPosition({winSize.width - 80, winSize.height - 35});
+        m_streakLabel->setScale(0.45f);
+        m_streakLabel->setColor({255, 0, 255}); // Magenta/Pink neon coloring
+        this->addChild(m_streakLabel, 3);
+
+        // ROLL BALL Action Frame Button (Bottom Left Corner)
+        auto rollBtnSprite = ButtonSprite::create("ROLL BALL", "goldFont.fnt", "GJ_button_01.png", 0.8f);
+        auto rollBtn = CCMenuItemSpriteExtra::create(
+            rollBtnSprite,
+            this,
+            menu_selector(CosmicAlleyLayer::onRollBall)
+        );
+        rollBtn->setPosition({winSize.width * 0.32f, 45});
+        uiMenu->addChild(rollBtn);
+
+        // EXIT TO MENU Navigation Frame Button (Bottom Right Corner)
+        auto exitBtnSprite = ButtonSprite::create("EXIT TO MENU", "goldFont.fnt", "GJ_button_02.png", 0.8f);
+        auto exitBtn = CCMenuItemSpriteExtra::create(
+            exitBtnSprite,
+            this,
+            menu_selector(CosmicAlleyLayer::onExitToMenu)
+        );
+        exitBtn->setPosition({winSize.width * 0.68f, 45});
+        uiMenu->addChild(exitBtn);
+
         return true;
     }
 
-    void onCosmicBowlingLoungeTap(CCObject* sender) {
-        if (!g_isInPrivateRoom) {
-            CosmicRoomManager::hostNewRoom();
-        }
+    // Array Generation Logic mapping specific side-view coordinate blocks
+    void setupBowlingPins() {
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+        
+        // Pin layout entry coordinates
+        float tipX = winSize.width - 220; 
+        float centerY = winSize.height / 2;
 
-        auto* loungeScene = BowlingLoungeLayer::scene();
-        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
+        // Custom structural spacing grids
+        float rowSpacingX = 35.0f; 
+        float pinSpacingY = 40.0f; 
+        int targetTagId = 1;
+
+        // Nested loops allocating 4 columns to create the 10-pin block (1+2+3+4)
+        for (int col = 0; col < 4; ++col) {
+            float columnStartY = centerY + (col * pinSpacingY / 2.0f);
+            
+            for (int row = 0; row <= col; ++row) {
+                auto pin = CCSprite::createWithSpriteFrameName("yourname.bowling_mod/alley_pins.png");
+                if (pin) {
+                    pin->setScale(0.35f); 
+                    
+                    // Apply programmatic mapping algorithm
+                    float currentX = tipX + (col * rowSpacingX);
+                    float currentY = columnStartY - (row * pinSpacingY);
+                    
+                    pin->setPosition({currentX, currentY});
+                    pin->setUserData(reinterpret_cast<void*>(uintptr_t(currentX))); // Save origin X coordinate safely
+                    pin->setTag(targetTagId); // Keep standard tag identities clean
+                    
+                    this->addChild(pin, 2);
+                    m_pins->addObject(pin);
+                    targetTagId++;
+                }
+            }
+        }
     }
+
+    // Handles executing physics translation transformations on launch click
+    void onRollBall(CCObject* sender) {
+        if (m_isRolling) return; 
+        m_isRolling = true;
+
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+        // Trigger original Geometry Dash sound effect managers
+        FMODAudioEngine::sharedEngine()->playEffect("playTarget.ogg", 1.0f, 0.0f, 1.0f);
+
+        // Movement action maps spanning the full floor length out-of-bounds
+        auto moveAction = CCMoveTo::create(1.5f, ccp(winSize.width + 120, winSize.height / 2));
+        auto rotateAction = CCRotateBy::create(1.5f, 1080.0f); // Fast linear spin rate
+        
+        auto resetCall = CCCallFunc::create(this, callfunc_selector(CosmicAlleyLayer::evaluateFrameResults));
+        auto sequence = CCSequence::create(moveAction, resetCall, nullptr);
+
+        m_ball->runAction(CCSpawn::create(sequence, rotateAction, nullptr));
+    }
+
+    // Handles the screen transition sequence safely popping back out to GD menus
+    void onExitToMenu(CCObject* sender) {
+        FMODAudioEngine::sharedEngine()->playEffect("quitSound.ogg", 1.0f, 0.0f, 1.0f);
+        CCDirector::sharedDirector()->popSceneWithTransition(0.5f, kPopTransitionFade);
+    }
+
+    // Real-Time Frame Engine checking structural bounds intersection overlaps
+    void update(float delta) override {
+        if (!m_isRolling || !m_ball) return;
+
+        // Extract and trim the collision bounding container area mapping
+        CCRect ballBox = m_ball->boundingBox();
+        ballBox.size.width *= 0.75f;
+        ballBox.size.height *= 0.75f;
+
+        // High precision pseudo-randomization vectors
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<float> angleDist(-45.0f, 45.0f);
+        std::uniform_real_distribution<float> forceDist(60.0f, 130.0f);
+
+        CCObject* itemObj = nullptr;
+        CCARRAY_FOREACH(m_pins, itemObj) {
+            auto pin = draw_cast<CCSprite*>(itemObj);
+            
+            // Filter configuration bypass flags (Tag ID 999 isolates down state)
+            if (!pin || pin->getTag() == 999) continue;
+
+            if (ballBox.intersectsRect(pin->boundingBox())) {
+                pin->setTag(999); // Instantly flag state to prevent duplicate calls
+                m_pinsDownCount++;
+
+                // Update text container strings
+                m_pinsDownLabel->setString(fmt::format("PINS DOWN: {}", m_pinsDownCount).c_str());
+
+                // Trigger impactful crash impact sounds using original game asset libraries
+                FMODAudioEngine::sharedEngine()->playEffect("hitSpikes.ogg", 0.8f, 0.0f, 1.0f);
+
+                // Advanced trajectory math algorithms
+float randomAngle = angleDist(gen);
+float randomForce = forceDist(gen);
+
+// Create a simulated gravity arc using physics vectors
+auto launchBack = CCMoveBy::create(0.5f, ccp(randomForce, randomAngle));
+auto rotationSpin = CCRotateBy::create(0.5f, randomForce * 3.0f);
+auto fadeOutEffect = CCFadeOut::create(0.5f);
+
+// Package actions concurrently inside spawn sequences
+pin->runAction(CCSpawn::create(launchBack, rotationSpin, fadeOutEffect, nullptr));
+}
+}
+}
+
+// Compiles framework scores before generating scene layout reloads
+void evaluateFrameResults() {
+if (m_pinsDownCount >= 10) {
+// Absolute strike accomplishment configuration routing
+m_score += 500;
+m_streakCount++;
+FMODAudioEngine::sharedEngine()->playEffect("achievement_01.ogg", 1.0f, 0.0f, 1.0f);
+
+auto strikeNotice = CCLabelBMFont::create("STRIKE !!", "goldFont.fnt");
+strikeNotice->setPosition(CCDirector::sharedDirector()->getWinSize() / 2);
+strikeNotice->setScale(1.5f);
+this->addChild(strikeNotice, 4);
+
+strikeNotice->runAction(CCSequence::create(
+CCScaleTo::create(0.3f, 2.0f),
+CCFadeOut::create(0.5f),
+CCRemoveSelf::create(),
+nullptr
+));
+} else if (m_pinsDownCount > 0) {
+// Standard point conversion distributions
+m_score += (m_pinsDownCount * 30);
+m_streakCount = 0; // Reset consecutive combo chain
+} else {
+// Gutter execution exception handling
+m_streakCount = 0;
+FMODAudioEngine::sharedEngine()->playEffect("explode_11.ogg", 0.7f, 0.0f, 1.0f);
+}
+
+// Apply updated values across operational labels
+m_scoreLabel->setString(fmt::format("SCORE: {:04d}", m_score).c_str());
+m_streakLabel->setString(fmt::format("STREAK: {}", m_streakCount).c_str());
+
+// Process final room variable system reset
+this->runAction(CCSequence::create(
+CCDelayTime::create(0.6f),
+CCCallFunc::create(this, callfunc_selector(CosmicAlleyLayer::resetGame)),
+nullptr
+));
+}
+
+// Flushes animation instances and resets positions
+void resetGame() {
+m_isRolling = false;
+m_pinsDownCount = 0;
+
+// Direct assignment targeting original configuration positions
+m_pinsDownLabel->setString("PINS DOWN: 0");
+
+m_ball->stopAllActions();
+m_ball->setPosition(m_ballStartPos);
+m_ball->setRotation(0);
+m_ball->setOpacity(255);
+
+// Cycle full array tree converting attributes back to visible defaults
+CCObject* itemObj = nullptr;
+int sequentialIndex = 1;
+
+CCARRAY_FOREACH(m_pins, itemObj) {
+auto pin = draw_cast<CCSprite*>(itemObj);
+if (pin) {
+pin->stopAllActions();
+pin->setTag(sequentialIndex);
+pin->setOpacity(255);
+pin->setRotation(0);
+
+// Recover layout properties saved inside custom pointer structures
+float originalX = static_cast(reinterpret_cast<uintptr_t>(pin->getUserData()));
+auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+// Reposition using the internal column configurations
+float centerY = winSize.height / 2;
+float pinSpacingY = 40.0f;
+
+// Reverse engineering column indices based on location
+int calculatedCol = static_cast((originalX - (winSize.width - 220)) / 35.0f);
+float columnStartY = centerY + (calculatedCol * pinSpacingY / 2.0f);
+
+// Gather contextual offset identities
+int pinIndexInCol = 0;
+CCObject* internalScan = nullptr;
+CCARRAY_FOREACH(m_pins, internalScan) {
+auto pScan = draw_cast<CCSprite*>(internalScan);
+if(pScan && pScan != pin && pScan->getUserData() == pin->getUserData() && pScan->getTag() < pin->getTag()) {
+pinIndexInCol++;
+}
+}
+
+float restoredY = columnStartY - (pinIndexInCol * pinSpacingY);
+pin->setPosition({originalX, restoredY});
+sequentialIndex++;
+}
+}
+}
+
+// Clear tracking references out of heap scopes to avoid crash leaks
+~CosmicAlleyLayer() override {
+CC_SAFE_RELEASE(m_pins);
+}
 };
 
-// ============================================================================
-// INTERMOD PACKET SYNCHRONIZATION WITH GLOBED
-// ============================================================================
-void syncPinDropWithGlobed(int pinID) {
-    if (Loader::get()->isModLoaded("dankmeme.globed2")) {
-        std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
-        auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
-        if (targetMod) {
-            log::info("Broadcasting Intermod Packet from menu: {}", message);
-        }
-    }
+// ==========================================
+// 3. MAIN GEOMETRY DASH MEMU LAYER INJECTION
+// ==========================================
+
+class $modify(MyMenuLayer, MenuLayer) {
+bool init() {
+if (!MenuLayer::init()) return false;
+
+// Safely extract main UI menu structure arrays from memory trees
+auto menu = this->getChildByID("main-menu");
+if (!menu) return true;
+
+// Custom main menu entry button instance setup configuration
+auto btnSprite = CCSprite::createWithSpriteFrameName("GJ_playBtn_001.png");
+if (btnSprite) {
+btnSprite->setScale(0.45f);
+btnSprite->setColor({0, 240, 255}); // Stylize launcher to match cyan colors
+
+auto btn = CCMenuItemSpriteExtra::create(
+btnSprite,
+this,
+menu_selector(MyMenuLayer::onCosmicAlleyClick)
+);
+
+// Safely push layout injection items into Geometry Dash nodes
+if (btn) {
+btn->setID("cosmic-alley-launcher");
+menu->addChild(btn);
+menu->updateLayout();
+}
 }
 
-void awardStrike() {
-    log::info("STRIKE! Awarding synchronized cosmic lane points.");
-    auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
-    alert->show();
+return true;
 }
+
+// Direct scene navigation routing logic
+void onCosmicAlleyClick(CCObject* sender) {
+// Trigger default menu navigation sound profile ticks
+FMODAudioEngine::sharedEngine()->playEffect("GJ_select_01.ogg", 1.0f, 0.0f, 1.0f);
+
+auto scene = CCScene::create();
+auto layer = CosmicAlleyLayer::create();
+
+if (scene && layer) {
+scene->addChild(layer);
+// Push scene via a sleek 0.5-second crossfade transition animation
+CCDirector::sharedDirector()->pushScene(CCTransitionFade::create(0.5f, scene));
+}
+}
+};
+
+
