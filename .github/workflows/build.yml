@@ -24,10 +24,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
+
+      # FIX 1: Upload the individual platform files so the combine job can see them
+      - name: Upload Platform Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: geode-build-${{ matrix.config.name }}
+          path: "**/*.geode"
 
   combine:
     name: Combine builds
@@ -35,9 +43,18 @@ jobs:
     needs: ['build']
     steps:
       - uses: actions/checkout@v4
+      
+      # FIX 2: Explicitly grab the uploaded files before combining
+      - name: Download Platform Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: geode-build-*
+          merge-multiple: true
+
       - uses: geode-sdk/build-geode-mod/combine@main
         id: build
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Build Output
-          path: ${{ steps.build.outputs.build-output }}
+          name: Cosmic-Bowling-Lounge-Mod
+          path: "**/*.geode"
