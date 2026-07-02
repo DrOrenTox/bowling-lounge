@@ -249,141 +249,139 @@ protected:
                     pin.vy = (pin.sprite->getPositionY() - m_bowlingBall->getPositionY()) * 0.4f;
                     pin.rotationSpeed = 25.0f;
 
-std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
-m_scoreLabel->setString(scoreStr.c_str());
+                    std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
+                    m_scoreLabel->setString(scoreStr.c_str());
 
-// ✅ CRITICAL FIX APPLIED: Template argument restored
-syncPinDropWithGlobed(static_cast(i));
+                    // ✅ CRITICAL FIX APPLIED: Template argument restored
+                    syncPinDropWithGlobed(static_cast<int>(i));
 
-if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
-g_isStrikeAwarded = true;
-awardStrike();
-}
-}
-}
+                    if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
+                        g_isStrikeAwarded = true;
+                        awardStrike();
+                    }
+                }
+            }
 
-if (m_bowlingBall->getPositionX() > winSize.width) {
-m_ballIsRolling = false;
-m_ballVelocityX = 0.0f;
-m_ballVelocityY = 0.0f;
-m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
-}
-}
+            if (m_bowlingBall->getPositionX() > winSize.width) {
+                m_ballIsRolling = false;
+                m_ballVelocityX = 0.0f;
+                m_ballVelocityY = 0.0f;
+                m_bowlingBall->setPosition({ winSize.width * 0.15f, winSize.height * 0.38f });
+            }
+        }
 
-// 2. OPTIMIZED: PIN PHYSICS TICK ENGINE (Eliminated Infinite Recursion Loop Trap)
-for (size_t i = 0; i < m_pinDeck.size(); ++i) {
-auto& pin = m_pinDeck[i];
-if (pin.isKnockedDown && pin.sprite->isVisible()) {
-pin.sprite->setPositionX(pin.sprite->getPositionX() + pin.vx);
-pin.sprite->setPositionY(pin.sprite->getPositionY() + pin.vy);
-pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
+        // 2. OPTIMIZED: PIN PHYSICS TICK ENGINE (Eliminated Infinite Recursion Loop Trap)
+        for (size_t i = 0; i < m_pinDeck.size(); ++i) {
+            auto& pin = m_pinDeck[i];
+            if (pin.isKnockedDown && pin.sprite->isVisible()) {
+                pin.sprite->setPositionX(pin.sprite->getPositionX() + pin.vx);
+                pin.sprite->setPositionY(pin.sprite->getPositionY() + pin.vy);
+                pin.sprite->setRotation(pin.sprite->getRotation() + pin.rotationSpeed);
 
-auto flyingPinBox = pin.sprite->boundingBox();
-for (size_t j = 0; j < m_pinDeck.size(); ++j) {
-if (i == j) continue;
+                auto flyingPinBox = pin.sprite->boundingBox();
+                for (size_t j = 0; j < m_pinDeck.size(); ++j) {
+                    if (i == j) continue;
 
-auto& otherPin = m_pinDeck[j];
-if (!otherPin.isKnockedDown && flyingPinBox.intersectsRect(otherPin.sprite->boundingBox())) {
-otherPin.isKnockedDown = true;
-g_pinsKnockedDown++;
+                    auto& otherPin = m_pinDeck[j];
+                    if (!otherPin.isKnockedDown && flyingPinBox.intersectsRect(otherPin.sprite->boundingBox())) {
+                        otherPin.isKnockedDown = true;
+                        g_pinsKnockedDown++;
 
-otherPin.vx = pin.vx * 0.65f;
-otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0.5f;
-otherPin.rotationSpeed = 20.0f;
+                        otherPin.vx = pin.vx * 0.65f;
+                        otherPin.vy = (otherPin.sprite->getPositionY() - pin.sprite->getPositionY()) * 0.5f;
+                        otherPin.rotationSpeed = 20.0f;
 
-m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
+                        m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
 
-// ✅ CRITICAL FIX APPLIED: Template argument restored
-syncPinDropWithGlobed(static_cast(j));
-}
-}
+                        // ✅ CRITICAL FIX APPLIED: Template argument restored
+                        syncPinDropWithGlobed(static_cast<int>(j));
+                    }
+                }
 
-pin.vx *= 0.95f;
-pin.vy *= 0.95f;
-pin.rotationSpeed *= 0.95f;
+                pin.vx *= 0.95f;
+                pin.vy *= 0.95f;
+                pin.rotationSpeed *= 0.95f;
 
-if (pin.sprite->getPositionX() > winSize.width || fabsf(pin.vx) < 0.1f) {
-pin.sprite->setVisible(false);
-}
-}
-}
-}
+                if (pin.sprite->getPositionX() > winSize.width || fabsf(pin.vx) < 0.1f) {
+                    pin.sprite->setVisible(false);
+                }
+            }
+        }
+    }
 
 public:
-static BowlingLoungeLayer* create() {
-auto* ret = new BowlingLoungeLayer();
-if (ret && ret->init()) {
-ret->autorelease();
-return ret;
-}
-CC_SAFE_DELETE(ret);
-return nullptr;
-}
+    static BowlingLoungeLayer* create() {
+        auto* ret = new BowlingLoungeLayer();
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
 
-static CCScene* scene() {
-auto* scene = CCScene::create();
-auto* layer = BowlingLoungeLayer::create();
-scene->addChild(layer);
-return scene;
-}
+    static CCScene* scene() {
+        auto* scene = CCScene::create();
+        auto* layer = BowlingLoungeLayer::create();
+        scene->addChild(layer);
+        return scene;
+    }
 };
 
 // ============================================================================
 // GEODE HOOK: MENULAYER (MAIN DASHBOARD INTEGRATION)
 // ============================================================================
 class $modify(CosmicMenuButtonManager, MenuLayer) {
-bool init() {
-if (!MenuLayer::init()) return false;
+    bool init() {
+        if (!MenuLayer::init()) return false;
 
-auto* bottomMenu = this->getChildByID("bottom-menu");
-if (bottomMenu) {
-auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
-if (bowlingSprite) {
-bowlingSprite->setColor({ 0, 180, 255 });
-}
+        auto* bottomMenu = this->getChildByID("bottom-menu");
+        if (bottomMenu) {
+            auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
+            if (bowlingSprite) {
+                bowlingSprite->setColor({ 0, 180, 255 });
+            }
 
-auto* bowlingButton = CCMenuItemSpriteExtra::create(
-bowlingSprite,
-this,
-menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
-);
+            auto* bowlingButton = CCMenuItemSpriteExtra::create(
+                bowlingSprite,
+                this,
+                menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
+            );
 
-if (bowlingButton) {
-bowlingButton->setID("cosmic-bowling-shortcut");
-bottomMenu->addChild(bowlingButton);
-bottomMenu->updateLayout();
-}
-}
-return true;
-}
+            if (bowlingButton) {
+                bowlingButton->setID("cosmic-bowling-shortcut");
+                bottomMenu->addChild(bowlingButton);
+                bottomMenu->updateLayout();
+            }
+        }
+        return true;
+    }
 
-void onCosmicBowlingLoungeTap(CCObject* sender) {
-if (!g_isInPrivateRoom) {
-CosmicRoomManager::hostNewRoom();
-}
+    void onCosmicBowlingLoungeTap(CCObject* sender) {
+        if (!g_isInPrivateRoom) {
+            CosmicRoomManager::hostNewRoom();
+        }
 
-auto* loungeScene = BowlingLoungeLayer::scene();
-CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
-}
+        auto* loungeScene = BowlingLoungeLayer::scene();
+        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
+    }
 };
 
 // ============================================================================
 // INTERMOD PACKET SYNCHRONIZATION WITH GLOBED
 // ============================================================================
 void syncPinDropWithGlobed(int pinID) {
-if (Loader::get()->isModLoaded("dankmeme.globed2")) {
-std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
-auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
-if (targetMod) {
-log::info("Broadcasting Intermod Packet from menu: {}", message);
-}
-}
+    if (Loader::get()->isModLoaded("dankmeme.globed2")) {
+        std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
+        auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
+        if (targetMod) {
+            log::info("Broadcasting Intermod Packet from menu: {}", message);
+        }
+    }
 }
 
 void awardStrike() {
-log::info("STRIKE! Awarding synchronized cosmic lane points.");
-auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
-alert->show();
+    log::info("STRIKE! Awarding synchronized cosmic lane points.");
+    auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
+    alert->show();
 }
-
-
