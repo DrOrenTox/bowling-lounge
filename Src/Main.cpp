@@ -476,8 +476,8 @@ protected:
         joinLabel->setScale(0.7f);
         this->addChild(joinLabel);
 
-        // Room Code Input
-        m_roomCodeInput = CCTextInputNode::create(100.0f, 40.0f, "12345", "Arial", 24.0f);
+        // Room Code Input - FIXED: Added 6th parameter (labelFont)
+        m_roomCodeInput = CCTextInputNode::create(100.0f, 40.0f, "12345", "Arial", 24.0f, "Arial");
         m_roomCodeInput->setPosition({ winSize.width / 2, winSize.height * 0.25f });
         this->addChild(m_roomCodeInput);
 
