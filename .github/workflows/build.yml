@@ -36,7 +36,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: ['build']
     steps:
-      # FIX: Added checkout step so the combiner can read your mod.json file
       - uses: actions/checkout@v4
 
       - uses: geode-sdk/build-geode-mod/combine@main
@@ -46,3 +45,4 @@ jobs:
         with:
           name: Cosmic-Bowling-Lounge-Mod
           path: ${{ steps.build.outputs.build-output }}
+
