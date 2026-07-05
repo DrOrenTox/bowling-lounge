@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <sstream>
+#include <iomanip>
 
 using namespace geode::prelude;
 
@@ -18,50 +20,88 @@ struct PinEntity {
     float rotationSpeed = 0.0f;
 };
 
+struct BowlingRoomConfig {
+    std::string roomCode;
+    int limitOption; // 2, 4, 8, 16, 32
+    bool isHost;
+    std::vector<std::string> players;
+};
+
 int g_pinsKnockedDown = 0;
 bool g_isStrikeAwarded = false;
-std::string g_myRoomID = "00000";
-bool g_isInPrivateRoom = false;
+BowlingRoomConfig g_roomConfig = {"00000", 2, false, {}};
+bool g_inBowlingRoom = false;
+float g_gameTimer = 15.0f;
+float g_maxGameTime = 15.0f;
+int g_currentDegree = 0;
 
 void syncPinDropWithGlobed(int pinID);
 void awardStrike();
+std::string generateRoomCode();
+bool checkSystemRequirements();
 
 // ============================================================================
-// CUSTOM ROOM MANAGEMENT LOGIC
+// SYSTEM REQUIREMENTS CHECK
 // ============================================================================
-namespace CosmicRoomManager {
-    std::string generateRoomCode() {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> distr(10000, 99999);
-        return std::to_string(distr(gen));
-    }
-
-    void hostNewRoom() {
-        g_myRoomID = generateRoomCode();
-        g_isInPrivateRoom = true;
-        log::info("Hosted a new cosmic bowling room via MenuLayer! Invite Code: {}", g_myRoomID);
-    }
+bool checkSystemRequirements() {
+    #ifdef GEODE_IS_WINDOWS
+        // Windows 11+ required
+        log::info("Detected Windows platform");
+        return true; // Simplified - actual implementation would check Windows version
+    #endif
+    
+    #ifdef GEODE_IS_MACOS
+        log::info("Detected macOS - requires latest version");
+        return true; // Simplified - actual implementation would check macOS version
+    #endif
+    
+    #ifdef GEODE_IS_IOS
+        log::info("Detected iOS - requires iOS 15 or higher");
+        return true; // Simplified - actual implementation would check iOS version
+    #endif
+    
+    #ifdef GEODE_IS_ANDROID
+        log::info("Detected Android - requires Android 13 or higher");
+        return true; // Simplified - actual implementation would check Android version
+    #endif
+    
+    return true;
 }
 
 // ============================================================================
-// REAL BOWLING LOUNGE PLAYABLE ENVIRONMENT WITH DYNAMIC KINETICS
+// ROOM CODE GENERATION
 // ============================================================================
-class BowlingLoungeLayer : public CCLayer {
+std::string generateRoomCode() {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distr(10000, 99999);
+    return std::to_string(distr(gen));
+}
+
+// ============================================================================
+// BOWLING ROOM MANAGEMENT
+// ============================================================================
+class BowlingRoomLayer : public CCLayer {
 protected:
     CCSprite* m_bowlingBall = nullptr;
     std::vector<PinEntity> m_pinDeck;
     CCLabelBMFont* m_scoreLabel = nullptr;
+    CCLabelBMFont* m_timerLabel = nullptr;
+    CCLabelBMFont* m_degreeLabel = nullptr;
+    CCLabelBMFont* m_roomCodeLabel = nullptr;
+    CCLabelBMFont* m_limitLabel = nullptr;
     bool m_ballIsRolling = false;
     float m_ballVelocityX = 0.0f;
     float m_ballVelocityY = 0.0f;
+    float m_ballAngle = 0.0f;
+    bool m_aimingMode = true;
 
     bool init() override {
         if (!CCLayer::init()) return false;
 
         auto winSize = CCDirector::sharedDirector()->getWinSize();
 
-        // 1. FIXED: Cosmic Background Setup utilizing packaged texture assets
+        // Background
         auto* bgSprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/cosmic_bg.png");
         if (bgSprite) {
             bgSprite->setPosition({ winSize.width / 2, winSize.height / 2 });
@@ -75,7 +115,7 @@ protected:
             this->addChild(fallbackBg, -2);
         }
 
-        // 2. FIXED: Wooden Lane Texture Mapping 
+        // Lane
         auto* laneSprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/lane_floor.png");
         if (laneSprite) {
             laneSprite->setPosition({ winSize.width / 2, winSize.height * 0.38f });
@@ -91,27 +131,48 @@ protected:
             this->addChild(fallbackLane, -1);
         }
 
-        // 3. UI Header Strings
-        auto titleStr = "Cosmic Alley — Room: " + g_myRoomID;
-        auto* loungeTitle = CCLabelBMFont::create(titleStr.c_str(), "goldFont.fnt");
-        loungeTitle->setPosition({ winSize.width / 2, winSize.height - 30.0f });
-        loungeTitle->setScale(0.8f);
-        this->addChild(loungeTitle);
+        // Room Code Display
+        m_roomCodeLabel = CCLabelBMFont::create(
+            ("Room: " + g_roomConfig.roomCode).c_str(), "bigFont.fnt"
+        );
+        m_roomCodeLabel->setPosition({ winSize.width / 2, winSize.height - 30.0f });
+        m_roomCodeLabel->setScale(0.8f);
+        this->addChild(m_roomCodeLabel);
 
+        // Timer Display
+        m_timerLabel = CCLabelBMFont::create("Time: 15s", "bigFont.fnt");
+        m_timerLabel->setPosition({ winSize.width * 0.15f, winSize.height - 30.0f });
+        m_timerLabel->setScale(0.6f);
+        this->addChild(m_timerLabel);
+
+        // Degree Display (for aiming)
+        m_degreeLabel = CCLabelBMFont::create("Angle: 0°", "bigFont.fnt");
+        m_degreeLabel->setPosition({ winSize.width * 0.85f, winSize.height - 30.0f });
+        m_degreeLabel->setScale(0.6f);
+        this->addChild(m_degreeLabel);
+
+        // Score Label
         m_scoreLabel = CCLabelBMFont::create("Pins Down: 0", "bigFont.fnt");
         m_scoreLabel->setPosition({ winSize.width / 2, winSize.height - 70.0f });
         m_scoreLabel->setScale(0.5f);
         this->addChild(m_scoreLabel);
 
-        // 4. Interactive Sandbox Menu Layout
+        // Limit Display
+        std::string limitStr = "Limit: 1/" + std::to_string(g_roomConfig.limitOption);
+        m_limitLabel = CCLabelBMFont::create(limitStr.c_str(), "bigFont.fnt");
+        m_limitLabel->setPosition({ winSize.width / 2, winSize.height - 100.0f });
+        m_limitLabel->setScale(0.5f);
+        this->addChild(m_limitLabel);
+
+        // Menu
         auto* actionMenu = CCMenu::create();
         actionMenu->setPosition(CCPointZero);
         this->addChild(actionMenu);
 
-        // Roll Button
-        auto* rollBtnSprite = ButtonSprite::create("ROLL BALL", "goldFont.fnt", "GJ_button_01.png");
+        // Aim/Roll Button
+        auto* rollBtnSprite = ButtonSprite::create("AIM & ROLL", "goldFont.fnt", "GJ_button_01.png");
         auto* rollButton = CCMenuItemSpriteExtra::create(
-            rollBtnSprite, this, menu_selector(BowlingLoungeLayer::onRollBall)
+            rollBtnSprite, this, menu_selector(BowlingRoomLayer::onAimAndRoll)
         );
         rollButton->setPosition({ winSize.width * 0.25f, winSize.height * 0.10f });
         actionMenu->addChild(rollButton);
@@ -119,15 +180,15 @@ protected:
         // Reset Lane Button
         auto* resetBtnSprite = ButtonSprite::create("RESET LANE", "goldFont.fnt", "GJ_button_02.png");
         auto* resetButton = CCMenuItemSpriteExtra::create(
-            resetBtnSprite, this, menu_selector(BowlingLoungeLayer::onResetAlley)
+            resetBtnSprite, this, menu_selector(BowlingRoomLayer::onResetAlley)
         );
         resetButton->setPosition({ winSize.width * 0.50f, winSize.height * 0.10f });
         actionMenu->addChild(resetButton);
 
         // Exit Button
-        auto* exitBtnSprite = ButtonSprite::create("EXIT TO MENU", "goldFont.fnt", "GJ_button_06.png");
+        auto* exitBtnSprite = ButtonSprite::create("X", "goldFont.fnt", "GJ_button_06.png");
         auto* exitButton = CCMenuItemSpriteExtra::create(
-            exitBtnSprite, this, menu_selector(BowlingLoungeLayer::onExitLounge)
+            exitBtnSprite, this, menu_selector(BowlingRoomLayer::onExitRoom)
         );
         exitButton->setPosition({ winSize.width * 0.75f, winSize.height * 0.10f });
         actionMenu->addChild(exitButton);
@@ -150,8 +211,10 @@ protected:
         m_ballIsRolling = false;
         m_ballVelocityX = 0.0f;
         m_ballVelocityY = 0.0f;
+        m_aimingMode = true;
+        g_gameTimer = g_maxGameTime;
 
-        // FIXED: Custom namespace asset container calls safely mapped
+        // Bowling Ball
         m_bowlingBall = CCSprite::create("mateo18023.cosmic_bowling_lounge/bowling_ball.png");
         if (!m_bowlingBall) {
             m_bowlingBall = CCSprite::createWithSpriteFrameName("p_firework_01.png");
@@ -181,7 +244,6 @@ protected:
 
         for (const auto& coordinate : targetCoords) {
             PinEntity pin;
-            // FIXED: Loads your custom striped bowling pin asset
             pin.sprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/bowling_pin.png");
             if (!pin.sprite) {
                 pin.sprite = CCSprite::createWithSpriteFrameName("slidergroove.png");
@@ -204,15 +266,17 @@ protected:
         }
     }
 
-    void onRollBall(CCObject*) {
-        if (!m_ballIsRolling) {
+    void onAimAndRoll(CCObject*) {
+        if (m_aimingMode) {
+            m_aimingMode = false;
             m_ballIsRolling = true;
-            m_ballVelocityX = 8.5f;
             
-            std::random_device rd;
-            std::mt19937 gen(rd());
-            std::uniform_real_distribution<float> distr(-0.4f, 0.4f);
-            m_ballVelocityY = distr(gen);
+            // Convert degree to velocity
+            float radians = (m_ballAngle * 3.14159f) / 180.0f;
+            m_ballVelocityX = 8.5f * cosf(radians);
+            m_ballVelocityY = 8.5f * sinf(radians);
+            
+            log::info("Rolling ball at angle: {}°", m_ballAngle);
         }
     }
 
@@ -223,13 +287,31 @@ protected:
         setupAlleyEntities();
     }
 
-    void onExitLounge(CCObject*) {
+    void onExitRoom(CCObject*) {
+        g_inBowlingRoom = false;
         auto* menuScene = MenuLayer::scene(false);
         CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, menuScene));
     }
 
     void update(float delta) override {
         auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+        // Update timer
+        if (m_aimingMode && g_gameTimer > 0) {
+            g_gameTimer -= delta;
+            if (g_gameTimer <= 0) {
+                // Auto-knock: roll at current angle
+                onAimAndRoll(nullptr);
+            }
+            
+            std::ostringstream oss;
+            oss << std::fixed << std::setprecision(1) << "Time: " << g_gameTimer << "s";
+            m_timerLabel->setString(oss.str().c_str());
+        }
+
+        // Handle aiming controls (increase/decrease degree with keyboard/touch)
+        // This is simplified - actual implementation would use touch/input system
+        m_degreeLabel->setString(("Angle: " + std::to_string(g_currentDegree) + "°").c_str());
 
         // 1. UPDATE BOWLING BALL POSITION
         if (m_ballIsRolling && m_bowlingBall) {
@@ -252,7 +334,6 @@ protected:
                     std::string scoreStr = "Pins Down: " + std::to_string(g_pinsKnockedDown);
                     m_scoreLabel->setString(scoreStr.c_str());
 
-                    // ✅ CRITICAL FIX APPLIED: Template argument restored
                     syncPinDropWithGlobed(static_cast<int>(i));
 
                     if (g_pinsKnockedDown == 10 && !g_isStrikeAwarded) {
@@ -270,7 +351,7 @@ protected:
             }
         }
 
-        // 2. OPTIMIZED: PIN PHYSICS TICK ENGINE (Eliminated Infinite Recursion Loop Trap)
+        // 2. PIN PHYSICS ENGINE
         for (size_t i = 0; i < m_pinDeck.size(); ++i) {
             auto& pin = m_pinDeck[i];
             if (pin.isKnockedDown && pin.sprite->isVisible()) {
@@ -292,8 +373,6 @@ protected:
                         otherPin.rotationSpeed = 20.0f;
 
                         m_scoreLabel->setString(("Pins Down: " + std::to_string(g_pinsKnockedDown)).c_str());
-
-                        // ✅ CRITICAL FIX APPLIED: Template argument restored
                         syncPinDropWithGlobed(static_cast<int>(j));
                     }
                 }
@@ -310,8 +389,8 @@ protected:
     }
 
 public:
-    static BowlingLoungeLayer* create() {
-        auto* ret = new BowlingLoungeLayer();
+    static BowlingRoomLayer* create() {
+        auto* ret = new BowlingRoomLayer();
         if (ret && ret->init()) {
             ret->autorelease();
             return ret;
@@ -322,7 +401,158 @@ public:
 
     static CCScene* scene() {
         auto* scene = CCScene::create();
-        auto* layer = BowlingLoungeLayer::create();
+        auto* layer = BowlingRoomLayer::create();
+        scene->addChild(layer);
+        return scene;
+    }
+};
+
+// ============================================================================
+// BOWLING ROOM SELECTION LAYER
+// ============================================================================
+class BowlingRoomSelectionLayer : public CCLayer {
+protected:
+    CCTextInputNode* m_roomCodeInput = nullptr;
+    CCLabelBMFont* m_requirementsLabel = nullptr;
+
+    bool init() override {
+        if (!CCLayer::init()) return false;
+
+        auto winSize = CCDirector::sharedDirector()->getWinSize();
+
+        // Background
+        auto* bgSprite = CCSprite::create("mateo18023.cosmic_bowling_lounge/cosmic_bg.png");
+        if (bgSprite) {
+            bgSprite->setPosition({ winSize.width / 2, winSize.height / 2 });
+            float scaleX = winSize.width / bgSprite->getContentSize().width;
+            float scaleY = winSize.height / bgSprite->getContentSize().height;
+            bgSprite->setScaleX(scaleX);
+            bgSprite->setScaleY(scaleY);
+            this->addChild(bgSprite, -2);
+        } else {
+            auto* fallbackBg = CCLayerColor::create(ccc4(15, 12, 28, 255));
+            this->addChild(fallbackBg, -2);
+        }
+
+        // Title
+        auto* titleLabel = CCLabelBMFont::create("Bowling Rooms", "goldFont.fnt");
+        titleLabel->setPosition({ winSize.width / 2, winSize.height - 50.0f });
+        titleLabel->setScale(1.2f);
+        this->addChild(titleLabel);
+
+        // System Requirements Display
+        std::string reqText = "Requirements:\n";
+        #ifdef GEODE_IS_ANDROID
+            reqText += "Android 13+";
+        #elif defined(GEODE_IS_IOS)
+            reqText += "iOS 15+";
+        #elif defined(GEODE_IS_WINDOWS)
+            reqText += "Windows 11+";
+        #elif defined(GEODE_IS_MACOS)
+            reqText += "macOS Latest";
+        #endif
+        
+        m_requirementsLabel = CCLabelBMFont::create(reqText.c_str(), "bigFont.fnt");
+        m_requirementsLabel->setPosition({ winSize.width / 2, winSize.height - 120.0f });
+        m_requirementsLabel->setScale(0.6f);
+        this->addChild(m_requirementsLabel);
+
+        // Menu
+        auto* menu = CCMenu::create();
+        menu->setPosition(CCPointZero);
+        this->addChild(menu);
+
+        // Create New Room Button
+        auto* createBtnSprite = ButtonSprite::create("CREATE ROOM", "goldFont.fnt", "GJ_button_01.png");
+        auto* createButton = CCMenuItemSpriteExtra::create(
+            createBtnSprite, this, menu_selector(BowlingRoomSelectionLayer::onCreateRoom)
+        );
+        createButton->setPosition({ winSize.width / 2, winSize.height * 0.5f });
+        menu->addChild(createButton);
+
+        // Join Room Label
+        auto* joinLabel = CCLabelBMFont::create("Enter 5-Digit Code to Join:", "bigFont.fnt");
+        joinLabel->setPosition({ winSize.width / 2, winSize.height * 0.35f });
+        joinLabel->setScale(0.7f);
+        this->addChild(joinLabel);
+
+        // Room Code Input
+        m_roomCodeInput = CCTextInputNode::create(100.0f, 40.0f, "12345", "Arial", 24.0f);
+        m_roomCodeInput->setPosition({ winSize.width / 2, winSize.height * 0.25f });
+        this->addChild(m_roomCodeInput);
+
+        // Join Room Button
+        auto* joinBtnSprite = ButtonSprite::create("JOIN ROOM", "goldFont.fnt", "GJ_button_02.png");
+        auto* joinButton = CCMenuItemSpriteExtra::create(
+            joinBtnSprite, this, menu_selector(BowlingRoomSelectionLayer::onJoinRoom)
+        );
+        joinButton->setPosition({ winSize.width / 2, winSize.height * 0.12f });
+        menu->addChild(joinButton);
+
+        // Back Button
+        auto* backBtnSprite = ButtonSprite::create("BACK", "goldFont.fnt", "GJ_button_06.png");
+        auto* backButton = CCMenuItemSpriteExtra::create(
+            backBtnSprite, this, menu_selector(BowlingRoomSelectionLayer::onBack)
+        );
+        backButton->setPosition({ 50.0f, 50.0f });
+        menu->addChild(backButton);
+
+        return true;
+    }
+
+    void onCreateRoom(CCObject*) {
+        g_roomConfig.roomCode = generateRoomCode();
+        g_roomConfig.isHost = true;
+        g_roomConfig.players.clear();
+        g_roomConfig.players.push_back("You");
+        g_inBowlingRoom = true;
+        
+        auto* scene = CCScene::create();
+        auto* layer = BowlingRoomLayer::create();
+        scene->addChild(layer);
+        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, scene));
+    }
+
+    void onJoinRoom(CCObject*) {
+        if (m_roomCodeInput) {
+            std::string code = m_roomCodeInput->getString();
+            if (code.length() == 5) {
+                g_roomConfig.roomCode = code;
+                g_roomConfig.isHost = false;
+                g_roomConfig.players.clear();
+                g_roomConfig.players.push_back("Host");
+                g_roomConfig.players.push_back("You");
+                g_inBowlingRoom = true;
+                
+                auto* scene = CCScene::create();
+                auto* layer = BowlingRoomLayer::create();
+                scene->addChild(layer);
+                CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, scene));
+            } else {
+                FLAlertLayer::create("Error", "Please enter a valid 5-digit code", "OK")->show();
+            }
+        }
+    }
+
+    void onBack(CCObject*) {
+        auto* menuScene = MenuLayer::scene(false);
+        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, menuScene));
+    }
+
+public:
+    static BowlingRoomSelectionLayer* create() {
+        auto* ret = new BowlingRoomSelectionLayer();
+        if (ret && ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        CC_SAFE_DELETE(ret);
+        return nullptr;
+    }
+
+    static CCScene* scene() {
+        auto* scene = CCScene::create();
+        auto* layer = BowlingRoomSelectionLayer::create();
         scene->addChild(layer);
         return scene;
     }
@@ -335,6 +565,12 @@ class $modify(CosmicMenuButtonManager, MenuLayer) {
     bool init() {
         if (!MenuLayer::init()) return false;
 
+        // Check system requirements
+        if (!checkSystemRequirements()) {
+            FLAlertLayer::create("System Check", "Your system does not meet the requirements", "OK")->show();
+            return true;
+        }
+        
         auto* bottomMenu = this->getChildByID("bottom-menu");
         if (bottomMenu) {
             auto* bowlingSprite = CCSprite::createWithSpriteFrameName("GJ_everyplayBtn_001.png");
@@ -345,7 +581,7 @@ class $modify(CosmicMenuButtonManager, MenuLayer) {
             auto* bowlingButton = CCMenuItemSpriteExtra::create(
                 bowlingSprite,
                 this,
-                menu_selector(CosmicMenuButtonManager::onCosmicBowlingLoungeTap)
+                menu_selector(CosmicMenuButtonManager::onBowlingLoungeTap)
             );
 
             if (bowlingButton) {
@@ -357,13 +593,9 @@ class $modify(CosmicMenuButtonManager, MenuLayer) {
         return true;
     }
 
-    void onCosmicBowlingLoungeTap(CCObject* sender) {
-        if (!g_isInPrivateRoom) {
-            CosmicRoomManager::hostNewRoom();
-        }
-
-        auto* loungeScene = BowlingLoungeLayer::scene();
-        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, loungeScene));
+    void onBowlingLoungeTap(CCObject* sender) {
+        auto* scene = BowlingRoomSelectionLayer::scene();
+        CCDirector::sharedDirector()->replaceScene(CCTransitionFade::create(0.5f, scene));
     }
 };
 
@@ -372,16 +604,18 @@ class $modify(CosmicMenuButtonManager, MenuLayer) {
 // ============================================================================
 void syncPinDropWithGlobed(int pinID) {
     if (Loader::get()->isModLoaded("dankmeme.globed2")) {
-        std::string message = "PIN_DROP:" + std::to_string(pinID) + "|ROOM:" + g_myRoomID;
-        auto* targetMod = Loader::get()->getLoadedMod("dankmeme.globed2");
-        if (targetMod) {
-            log::info("Broadcasting Intermod Packet from menu: {}", message);
+        auto* globedMod = Loader::get()->getLoadedMod("dankmeme.globed2");
+        if (globedMod) {
+            std::string message = "BOWLING_EVENT:PIN_DROP:" + std::to_string(pinID) + 
+                                "|ROOM:" + g_roomConfig.roomCode + 
+                                "|LIMIT:" + std::to_string(g_roomConfig.limitOption);
+            log::info("Broadcasting bowling event to Globed: {}", message);
         }
     }
 }
 
 void awardStrike() {
-    log::info("STRIKE! Awarding synchronized cosmic lane points.");
-    auto* alert = FLAlertLayer::create("❌ STRIKE! ❌", "You cleared the deck in the Cosmic Lounge!", "Boom!");
+    log::info("STRIKE! All pins knocked down!");
+    auto* alert = FLAlertLayer::create("🎳 STRIKE! 🎳", "You cleared all the pins!", "Awesome!");
     alert->show();
 }
