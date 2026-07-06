@@ -12,8 +12,13 @@ endif()
 # Include the Geode SDK build directory configurations
 add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
-# Automatically find all C++ source files inside your Src directory
-file(GLOB_RECURSE SOURCES Src/*.cpp)
+# Safely find all C++ source and header files across both case-sensitive Linux and Windows
+file(GLOB_RECURSE SOURCES 
+    "src/*.cpp" 
+    "Src/*.cpp"
+    "src/*.hpp"
+    "Src/*.hpp"
+)
 
 # Define the shared library module for your mod
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
