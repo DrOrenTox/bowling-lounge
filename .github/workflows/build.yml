@@ -27,8 +27,10 @@ jobs:
       
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
+        id: build
         with:
-          combine: true
+          # Use a unique name per matrix target so they don't overwrite each other
+          name: ${{ matrix.config.target }}
           target: ${{ matrix.config.target }}
 
   package:
@@ -38,11 +40,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Combine explicitly tells the action to look for both build outputs
       - uses: geode-sdk/build-geode-mod/combine@main
-        id: build
+        id: combine
+        with:
+          name: Win64, Android64
 
       - uses: actions/upload-artifact@v4
         with:
           name: Cosmic-Bowling-Lounge-Mod
-          path: ${{ steps.build.outputs.build-output }}
+          path: ${{ steps.combine.outputs.build-output }}
 
