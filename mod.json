@@ -1,22 +1,23 @@
 {
   "geode": "5.7.1",
-  "id": "TechVXGMD.cosmic_bowling_lounge",
+  "id": "techvxgmd.cosmic_bowling_lounge",
   "version": "1.0.0",
   "name": "Cosmic Bowling Lounge",
   "developer": "TechVXGMD",
   "description": "Adds a customizable 2D cosmic bowling mini-game layer with complete support for visual client synchronization over the Globed multiplayer framework.",
-  "dependencies": {
-    "dankmeme.globed2": {
+  "dependencies": [
+    {
+      "id": "dankmeme.globed2",
       "version": ">=2.0.0",
       "importance": "required"
     }
-  },
+  ],
   "resources": {
     "sprites": [
-      "resources/cosmic_ball.png",
-      "resources/alley_pin.png",
-      "resources/alley_floor.png",
-      "resources/cosmic_background.png"
+      "cosmic_ball.png",
+      "alley_pin.png",
+      "alley_floor.png",
+      "cosmic_background.png"
     ]
   },
   "gd": {
