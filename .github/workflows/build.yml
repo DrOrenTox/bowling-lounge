@@ -12,19 +12,35 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: Windows
+          # Windows Targets
+          - name: Windows 64-bit
             os: windows-latest
             target: Win64
-          - name: Android64
+          - name: Windows 32-bit
+            os: windows-latest
+            target: Win32
+
+          # Android Targets
+          - name: Android 64-bit
             os: ubuntu-latest
             target: Android64
+          - name: Android 32-bit
+            os: ubuntu-latest
+            target: Android32
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
 
     steps:
       - uses: actions/checkout@v4
-      
+
+      # FIXED: Provisions the required NDK compiler tools so the Linux runner can generate Android binaries
+      - name: Set up Android NDK
+        if: contains(matrix.config.target, 'Android')
+        uses: nndess/setup-ndk@v1
+        with:
+          ndk-version: r26b
+
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
@@ -38,13 +54,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # id: build tags this step so the upload action can track its path outputs
       - uses: geode-sdk/build-geode-mod/combine@main
         id: build
 
       - uses: actions/upload-artifact@v4
         with:
           name: Cosmic-Bowling-Lounge-Mod
-          # This correctly matches the 'build' ID step directly above
           path: ${{ steps.build.outputs.build-output }}
 
