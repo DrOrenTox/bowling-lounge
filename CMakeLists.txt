@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
-project(cosmic_bowling_lounge VERSION 1.0.0)
+
+# FIXED: Project name matches mod.json ID to prevent missing binary name errors
+project(mateo18023.cosmic_bowling_lounge VERSION 1.0.1)
 
 if (NOT DEFINED ENV{GEODE_SDK})
     message(FATAL_ERROR "Unable to find Geode SDK!")
