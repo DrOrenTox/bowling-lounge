@@ -37,7 +37,7 @@ jobs:
       # FIXED: Provisions the required NDK compiler tools so the Linux runner can generate Android binaries
       - name: Set up Android NDK
         if: contains(matrix.config.target, 'Android')
-        uses: nndess/setup-ndk@v1
+        uses: nndm/setup-ndk@v1
         with:
           ndk-version: r26b
 
