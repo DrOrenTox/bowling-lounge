@@ -1,7 +1,9 @@
-🎳 Bowling Lounge — A Massive Geode Mod for Geometry Dash
-
-A unique, physics-based gameplay mod for Geometry Dash where players can roll a bowling ball, hit pins, and try to score a perfect strike! Fully functional custom objects and mechanics.
-
-👋 Looking for Collaborators!
-I am currently developing this project as a solo developer and would love to build a team. If you are an artist who wants to design bowling pins/textures, a C++ programmer interested in Cocos2d-x UI, or a playtester who loves breaking things, please reach out! Let's build something amazing together.
-
+I made my first Geode Mod rather not Rate level training  so I had to make this geode mod for Everyone for The fun days!
+This Geode mod was made by a Solo Developer TechVXGMD.
+New Geode updates that it goes to v6 does mean The Geode Mod is Outdated
+so If your here Don't worry This Geode mod is Called cosmic Bowling lounge and It's A Fun Geode mod you can play with globed
+FAQ:
+Q1: Will there be other mods required for this
+no just Globed it needs Incase something does required it
+Q2: Why is there a button to check my OS or Version 
+because I had to make it So it will Work properly!
