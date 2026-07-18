@@ -14,10 +14,10 @@ jobs:
         config:
           - name: Windows
             os: windows-latest
-            target: win
+            target: Win64
           - name: Android64
             os: ubuntu-latest
-            target: android
+            target: Android64
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
@@ -47,4 +47,3 @@ jobs:
           name: Cosmic-Bowling-Lounge-Mod
           # This correctly matches the 'build' ID step directly above
           path: ${{ steps.build.outputs.build-output }}
-
