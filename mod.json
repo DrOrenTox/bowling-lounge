@@ -5,13 +5,12 @@
   "name": "Cosmic Bowling Lounge",
   "developer": "TechVXGMD",
   "description": "Adds a customizable 2D cosmic bowling mini-game layer with complete support for visual client synchronization over the Globed multiplayer framework.",
-  "dependencies": [
-    {
-      "id": "dankmeme.globed2",
+  "dependencies": {
+    "dankmeme.globed2": {
       "version": ">=2.0.0",
       "importance": "required"
     }
-  ],
+  },
   "resources": {
     "sprites": [
       "bowling_ball.png",
