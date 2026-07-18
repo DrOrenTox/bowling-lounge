@@ -1,5 +1,5 @@
 {
-  "geode": "5.7.1",
+  "geode": "5.8.1",
   "id": "mateo18023.cosmic_bowling_lounge",
   "version": "1.0.1",
   "name": "Cosmic Bowling Lounge",
@@ -16,7 +16,7 @@
       "bowling_ball.png",
       "bowling_pin.png",
       "lane_floor.png",
-      "cosmic_bg.png"
+      "cosmic_bg-UHD.png"
     ]
   },
   "gd": {
